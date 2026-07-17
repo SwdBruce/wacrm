@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { useAuth } from "@/hooks/use-auth";
 
@@ -11,6 +12,7 @@ import { useAuth } from "@/hooks/use-auth";
 // normal member who typed the URL directly.
 export function PlatformGuard({ children }: { children: React.ReactNode }) {
   const { profileLoading, isPlatformOwner } = useAuth();
+  const t = useTranslations("Platform.guard");
 
   if (profileLoading) {
     return (
@@ -28,10 +30,10 @@ export function PlatformGuard({ children }: { children: React.ReactNode }) {
         </div>
         <div>
           <h2 className="text-base font-semibold text-foreground">
-            Platform access required
+            {t("title")}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            This area is restricted to the platform owner.
+            {t("description")}
           </p>
         </div>
       </div>

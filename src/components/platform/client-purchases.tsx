@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { AssignPackageDialog } from "@/components/platform/assign-package-dialog";
@@ -34,6 +35,8 @@ export function ClientPurchases({
   accountId: string;
   accountName?: string;
 }) {
+  const t = useTranslations("Platform.purchases");
+  const tCommon = useTranslations("Platform.common");
   const [purchases, setPurchases] = useState<AccountMessagePurchase[] | null>(
     null,
   );
@@ -58,11 +61,11 @@ export function ClientPurchases({
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to load purchases");
+        throw new Error(data?.error ?? t("loadError"));
       }
       setPurchases(data.purchases ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load purchases");
+      setError(err instanceof Error ? err.message : t("loadError"));
     } finally {
       setLoading(false);
     }
@@ -82,11 +85,11 @@ export function ClientPurchases({
     if (!editTarget) return;
     const remaining = Number(remainingInput);
     if (!Number.isInteger(remaining) || remaining < 0) {
-      toast.error("Remaining must be a non-negative integer");
+      toast.error(t("remainingInvalid"));
       return;
     }
     if (remaining > editTarget.quantity) {
-      toast.error(`Remaining cannot exceed ${editTarget.quantity}`);
+      toast.error(t("remainingExceeds", { max: editTarget.quantity }));
       return;
     }
 
@@ -101,12 +104,12 @@ export function ClientPurchases({
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Failed to update remaining");
-      toast.success("Remaining updated");
+      if (!res.ok) throw new Error(data?.error ?? t("updateError"));
+      toast.success(t("updatedToast"));
       setEditTarget(null);
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Update failed");
+      toast.error(err instanceof Error ? err.message : t("updateFailed"));
     } finally {
       setSaving(false);
     }
@@ -121,12 +124,12 @@ export function ClientPurchases({
         { method: "DELETE" },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Failed to delete purchase");
-      toast.success("Package assignment removed");
+      if (!res.ok) throw new Error(data?.error ?? t("deleteError"));
+      toast.success(t("deletedToast"));
       setDeleteTarget(null);
       await load();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Delete failed");
+      toast.error(err instanceof Error ? err.message : t("deleteFailed"));
     } finally {
       setDeleting(false);
     }
@@ -136,11 +139,11 @@ export function ClientPurchases({
     <div>
       <div className="mb-2 flex items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">
-          Message packages ({purchases?.length ?? 0})
+          {t("title", { count: purchases?.length ?? 0 })}
         </h2>
         <Button size="sm" variant="outline" onClick={() => setAssignOpen(true)}>
           <Plus />
-          Assign package
+          {t("assignPackage")}
         </Button>
       </div>
 
@@ -153,18 +156,18 @@ export function ClientPurchases({
           </div>
         ) : (purchases?.length ?? 0) === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No packages assigned yet.
+            {t("empty")}
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Pack</TableHead>
-                <TableHead>Categories</TableHead>
-                <TableHead>Validity</TableHead>
-                <TableHead>Used</TableHead>
-                <TableHead>Remaining</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>{t("colPack")}</TableHead>
+                <TableHead>{t("colCategories")}</TableHead>
+                <TableHead>{t("colValidity")}</TableHead>
+                <TableHead>{t("colUsed")}</TableHead>
+                <TableHead>{t("colRemaining")}</TableHead>
+                <TableHead>{t("colStatus")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -190,7 +193,7 @@ export function ClientPurchases({
                   <TableCell className="text-foreground">{p.remaining}</TableCell>
                   <TableCell>
                     <Badge variant={p.is_active ? "default" : "outline"}>
-                      {p.is_active ? "Active" : "Inactive"}
+                      {p.is_active ? tCommon("active") : tCommon("inactive")}
                     </Badge>
                   </TableCell>
                   <TableCell>
@@ -199,7 +202,7 @@ export function ClientPurchases({
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => openEdit(p)}
-                        aria-label="Edit remaining"
+                        aria-label={t("editRemainingAria")}
                       >
                         <Pencil />
                       </Button>
@@ -207,7 +210,7 @@ export function ClientPurchases({
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => setDeleteTarget(p)}
-                        aria-label="Delete purchase"
+                        aria-label={t("deleteAria")}
                       >
                         <Trash2 />
                       </Button>
@@ -236,17 +239,16 @@ export function ClientPurchases({
       >
         <DialogContent className="border-border bg-popover sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Edit remaining</DialogTitle>
+            <DialogTitle>{t("editTitle")}</DialogTitle>
             <DialogDescription>
-              Sets how many credits this assignment has left (0–
-              {editTarget?.quantity.toLocaleString() ?? 0}). Usage history
-              for this pack is cleared; future template sends count from
-              here.
+              {t("editDesc", {
+                max: editTarget?.quantity.toLocaleString() ?? 0,
+              })}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-1.5 py-2">
-            <Label htmlFor="edit-remaining">Remaining</Label>
+            <Label htmlFor="edit-remaining">{t("remainingLabel")}</Label>
             <Input
               id="edit-remaining"
               type="number"
@@ -261,10 +263,15 @@ export function ClientPurchases({
             />
             {editTarget ? (
               <p className="text-xs text-muted-foreground">
-                Catalog pack size {editTarget.quantity.toLocaleString()}
                 {editTarget.quantity_override != null
-                  ? ` · current balance ${editTarget.remaining.toLocaleString()}`
-                  : ` · currently used ${editTarget.used.toLocaleString()}`}
+                  ? t("catalogHintOverride", {
+                      quantity: editTarget.quantity.toLocaleString(),
+                      remaining: editTarget.remaining.toLocaleString(),
+                    })
+                  : t("catalogHintUsed", {
+                      quantity: editTarget.quantity.toLocaleString(),
+                      used: editTarget.used.toLocaleString(),
+                    })}
               </p>
             ) : null}
           </div>
@@ -275,11 +282,11 @@ export function ClientPurchases({
               onClick={() => setEditTarget(null)}
               disabled={saving}
             >
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button onClick={() => void saveRemaining()} disabled={saving}>
               {saving ? <Loader2 className="animate-spin" /> : null}
-              Save
+              {tCommon("save")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -293,10 +300,13 @@ export function ClientPurchases({
       >
         <DialogContent className="border-border bg-popover sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Remove package assignment</DialogTitle>
+            <DialogTitle>{t("deleteTitle")}</DialogTitle>
             <DialogDescription>
               {deleteTarget
-                ? `This removes ${deleteTarget.quantity.toLocaleString()} msgs (${deleteTarget.remaining.toLocaleString()} remaining) from this client. Its usage history is deleted too. This can't be undone.`
+                ? t("deleteDesc", {
+                    quantity: deleteTarget.quantity.toLocaleString(),
+                    remaining: deleteTarget.remaining.toLocaleString(),
+                  })
                 : null}
             </DialogDescription>
           </DialogHeader>
@@ -307,7 +317,7 @@ export function ClientPurchases({
               onClick={() => setDeleteTarget(null)}
               disabled={deleting}
             >
-              Cancel
+              {tCommon("cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -315,7 +325,7 @@ export function ClientPurchases({
               disabled={deleting}
             >
               {deleting ? <Loader2 className="animate-spin" /> : null}
-              Remove
+              {tCommon("remove")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -36,10 +37,6 @@ interface AssignPackageDialogProps {
   onAssigned?: () => void;
 }
 
-function packageLabel(pkg: MessagePackage): string {
-  return `${pkg.quantity.toLocaleString()} msgs · ${pkg.unit_price.toFixed(2)} · ${pkg.duration_days}d`;
-}
-
 export function AssignPackageDialog({
   open,
   onOpenChange,
@@ -48,6 +45,8 @@ export function AssignPackageDialog({
   accounts: accountsProp,
   onAssigned,
 }: AssignPackageDialogProps) {
+  const t = useTranslations("Platform.assign");
+  const tCommon = useTranslations("Platform.common");
   const lockedToAccount = Boolean(fixedAccountId);
   const [accounts, setAccounts] = useState<PlatformAccountSummary[]>(
     accountsProp ?? [],
@@ -60,6 +59,14 @@ export function AssignPackageDialog({
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const selectedPackage = packages.find((p) => p.id === packageId) ?? null;
+
+  function packageLabel(pkg: MessagePackage): string {
+    return t("packageOption", {
+      quantity: pkg.quantity.toLocaleString(),
+      price: pkg.unit_price.toFixed(2),
+      days: pkg.duration_days,
+    });
+  }
 
   // Base UI Select shows the raw value (UUID) unless `items` maps
   // each value to a human-readable label for <SelectValue>.
@@ -98,14 +105,14 @@ export function AssignPackageDialog({
         const [packagesRes, accountsRes] = await Promise.all(requests);
         const packagesData = await packagesRes.json().catch(() => ({}));
         if (!packagesRes.ok) {
-          throw new Error(packagesData?.error ?? "Failed to load packages");
+          throw new Error(packagesData?.error ?? t("loadPackagesError"));
         }
 
         let nextAccounts = accountsProp ?? [];
         if (accountsRes) {
           const accountsData = await accountsRes.json().catch(() => ({}));
           if (!accountsRes.ok) {
-            throw new Error(accountsData?.error ?? "Failed to load clients");
+            throw new Error(accountsData?.error ?? t("loadClientsError"));
           }
           nextAccounts = accountsData.accounts ?? [];
         }
@@ -122,7 +129,7 @@ export function AssignPackageDialog({
       } catch (err) {
         if (!cancelled) {
           setLoadError(
-            err instanceof Error ? err.message : "Failed to load options",
+            err instanceof Error ? err.message : t("loadOptionsError"),
           );
         }
       } finally {
@@ -134,15 +141,16 @@ export function AssignPackageDialog({
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, fixedAccountId, lockedToAccount, accountsProp]);
 
   async function assign() {
     if (!accountId) {
-      toast.error("Select a client");
+      toast.error(t("selectClient"));
       return;
     }
     if (!packageId) {
-      toast.error("Select a package");
+      toast.error(t("selectPackage"));
       return;
     }
 
@@ -157,18 +165,18 @@ export function AssignPackageDialog({
         },
       );
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Failed to assign package");
+      if (!res.ok) throw new Error(data?.error ?? t("assignError"));
 
       const clientName =
         fixedAccountName ??
         accounts.find((a) => a.id === accountId)?.name ??
-        "client";
-      const qty = selectedPackage?.quantity.toLocaleString() ?? "messages";
-      toast.success(`Assigned ${qty} messages to ${clientName}`);
+        t("fallbackClient");
+      const qty = selectedPackage?.quantity.toLocaleString() ?? "";
+      toast.success(t("successToast", { qty, client: clientName }));
       onOpenChange(false);
       onAssigned?.();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Assign failed");
+      toast.error(err instanceof Error ? err.message : t("assignFailed"));
     } finally {
       setAssigning(false);
     }
@@ -178,11 +186,11 @@ export function AssignPackageDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="border-border bg-popover sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Assign package</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
             {lockedToAccount && fixedAccountName
-              ? `Credit pack for ${fixedAccountName}. Validity starts today.`
-              : "Pick a client and a credit pack. Validity starts today."}
+              ? t("descLocked", { name: fixedAccountName })
+              : t("descOpen")}
           </DialogDescription>
         </DialogHeader>
 
@@ -196,7 +204,7 @@ export function AssignPackageDialog({
           <div className="space-y-4 py-2">
             {!lockedToAccount ? (
               <div className="space-y-1.5">
-                <Label htmlFor="assign-client">Client</Label>
+                <Label htmlFor="assign-client">{t("clientLabel")}</Label>
                 <Select
                   value={accountId || null}
                   onValueChange={(value) => {
@@ -205,7 +213,7 @@ export function AssignPackageDialog({
                   items={accountItems}
                 >
                   <SelectTrigger id="assign-client" className="w-full">
-                    <SelectValue placeholder="Select a client" />
+                    <SelectValue placeholder={t("clientPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {accountItems.map((item) => (
@@ -217,14 +225,14 @@ export function AssignPackageDialog({
                 </Select>
                 {accounts.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
-                    Create a client first.
+                    {t("noClients")}
                   </p>
                 ) : null}
               </div>
             ) : null}
 
             <div className="space-y-1.5">
-              <Label htmlFor="assign-package">Package</Label>
+              <Label htmlFor="assign-package">{t("packageLabel")}</Label>
               <Select
                 value={packageId || null}
                 onValueChange={(value) => {
@@ -233,7 +241,7 @@ export function AssignPackageDialog({
                 items={packageItems}
               >
                 <SelectTrigger id="assign-package" className="w-full">
-                  <SelectValue placeholder="Select a package" />
+                  <SelectValue placeholder={t("packagePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {packageItems.map((item) => (
@@ -245,7 +253,7 @@ export function AssignPackageDialog({
               </Select>
               {packages.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
-                  Create a package under Platform → Packages first.
+                  {t("noPackages")}
                 </p>
               ) : null}
             </div>
@@ -253,11 +261,15 @@ export function AssignPackageDialog({
             {selectedPackage ? (
               <div className="rounded-lg bg-muted/50 px-3 py-2.5 text-sm">
                 <p className="font-medium text-foreground">
-                  {selectedPackage.quantity.toLocaleString()} messages
+                  {t("summaryQty", {
+                    quantity: selectedPackage.quantity.toLocaleString(),
+                  })}
                 </p>
                 <p className="mt-0.5 text-muted-foreground">
-                  {selectedPackage.unit_price.toFixed(2)} / msg ·{" "}
-                  {selectedPackage.duration_days} days validity
+                  {t("summaryMeta", {
+                    price: selectedPackage.unit_price.toFixed(2),
+                    days: selectedPackage.duration_days,
+                  })}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1">
                   {selectedPackage.categories.map((category) => (
@@ -277,7 +289,7 @@ export function AssignPackageDialog({
             onClick={() => onOpenChange(false)}
             disabled={assigning}
           >
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button
             onClick={() => void assign()}
@@ -290,7 +302,7 @@ export function AssignPackageDialog({
             }
           >
             {assigning ? <Loader2 className="animate-spin" /> : null}
-            Assign
+            {t("assignBtn")}
           </Button>
         </DialogFooter>
       </DialogContent>

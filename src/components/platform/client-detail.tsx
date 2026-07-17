@@ -12,6 +12,7 @@ import {
   Users as UsersIcon,
   X,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,13 +32,6 @@ import type {
   PlatformAccountMember,
 } from "@/lib/platform/types";
 import type { AccountRole } from "@/lib/auth/roles";
-
-const ROLE_LABEL: Record<AccountRole, string> = {
-  owner: "Owner",
-  admin: "Admin",
-  agent: "Agent",
-  viewer: "Viewer",
-};
 
 function StatCard({
   icon: Icon,
@@ -66,22 +60,35 @@ function StatCard({
 }
 
 function MemberRow({ member }: { member: PlatformAccountMember }) {
+  const t = useTranslations("Platform.clientDetail");
+  const tCommon = useTranslations("Platform.common");
+
+  const roleLabel: Record<AccountRole, string> = {
+    owner: tCommon("roleOwner"),
+    admin: tCommon("roleAdmin"),
+    agent: tCommon("roleAgent"),
+    viewer: tCommon("roleViewer"),
+  };
+
   return (
     <TableRow>
       <TableCell className="font-medium text-foreground">
         <div className="flex items-center gap-2">
-          {member.full_name ?? "—"}
+          {member.full_name ?? tCommon("emDash")}
           {member.is_platform_owner ? (
-            <Crown className="h-3.5 w-3.5 text-amber-400" aria-label="Platform owner" />
+            <Crown
+              className="h-3.5 w-3.5 text-amber-400"
+              aria-label={t("platformOwnerAria")}
+            />
           ) : null}
         </div>
       </TableCell>
       <TableCell className="text-muted-foreground">
-        {member.email ?? "—"}
+        {member.email ?? tCommon("emDash")}
       </TableCell>
       <TableCell>
         <Badge variant={member.role === "owner" ? "default" : "outline"}>
-          {ROLE_LABEL[member.role]}
+          {roleLabel[member.role]}
         </Badge>
       </TableCell>
     </TableRow>
@@ -89,6 +96,8 @@ function MemberRow({ member }: { member: PlatformAccountMember }) {
 }
 
 export function ClientDetail({ accountId }: { accountId: string }) {
+  const t = useTranslations("Platform.clientDetail");
+  const tCommon = useTranslations("Platform.common");
   const [account, setAccount] = useState<PlatformAccountDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,12 +115,12 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       const res = await fetch(`/api/platform/accounts/${accountId}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to load client");
+        throw new Error(data?.error ?? t("loadError"));
       }
       setAccount(data.account);
       setName(data.account?.name ?? "");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load client");
+      setError(err instanceof Error ? err.message : t("loadError"));
     } finally {
       setLoading(false);
     }
@@ -139,12 +148,12 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to rename");
+        throw new Error(data?.error ?? t("renameError"));
       }
       setAccount((prev) => (prev ? { ...prev, name: trimmed } : prev));
       setEditing(false);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to rename");
+      setSaveError(err instanceof Error ? err.message : t("renameError"));
     } finally {
       setSaving(false);
     }
@@ -160,7 +169,7 @@ export function ClientDetail({ accountId }: { accountId: string }) {
         render={<Link href="/platform/clients" />}
       >
         <ArrowLeft />
-        Back to clients
+        {t("back")}
       </Button>
 
       {error ? (
@@ -216,7 +225,7 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => setEditing(true)}
-                  aria-label="Rename organisation"
+                  aria-label={t("renameAria")}
                 >
                   <Pencil />
                 </Button>
@@ -227,21 +236,24 @@ export function ClientDetail({ accountId }: { accountId: string }) {
             ) : null}
             <p className="mt-1 text-sm text-muted-foreground">
               {account.owner
-                ? `Owner: ${account.owner.full_name ?? "—"}${
-                    account.owner.email ? ` · ${account.owner.email}` : ""
-                  }`
-                : "Owner invitation pending"}
+                ? t("ownerLine", {
+                    name: account.owner.full_name ?? tCommon("emDash"),
+                    email: account.owner.email
+                      ? ` · ${account.owner.email}`
+                      : "",
+                  })
+                : t("ownerPending")}
             </p>
             {account.ruc ? (
               <p className="mt-0.5 font-mono text-sm text-muted-foreground">
-                RUC: {account.ruc}
+                {t("rucLine", { ruc: account.ruc })}
               </p>
             ) : null}
           </div>
 
           {/* WhatsApp snapshot */}
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-muted-foreground">WhatsApp:</span>
+            <span className="text-muted-foreground">{t("whatsappLabel")}</span>
             {account.whatsapp ? (
               <>
                 <Badge
@@ -252,8 +264,8 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                   }
                 >
                   {account.whatsapp.status === "connected"
-                    ? "Connected"
-                    : "Disconnected"}
+                    ? tCommon("connected")
+                    : tCommon("disconnected")}
                 </Badge>
                 {account.whatsapp.phone_number_id ? (
                   <span className="font-mono text-xs text-muted-foreground">
@@ -263,25 +275,33 @@ export function ClientDetail({ accountId }: { accountId: string }) {
               </>
             ) : (
               <Badge variant="outline" className="text-muted-foreground">
-                No config
+                {tCommon("noConfig")}
               </Badge>
             )}
           </div>
 
           {/* Counts */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard icon={UsersIcon} label="Contacts" value={account.counts.contacts} />
+            <StatCard
+              icon={UsersIcon}
+              label={t("statContacts")}
+              value={account.counts.contacts}
+            />
             <StatCard
               icon={MessageSquare}
-              label="Conversations"
+              label={t("statConversations")}
               value={account.counts.conversations}
             />
             <StatCard
               icon={MessageSquare}
-              label="Templates"
+              label={t("statTemplates")}
               value={account.counts.templates}
             />
-            <StatCard icon={Radio} label="Broadcasts" value={account.counts.broadcasts} />
+            <StatCard
+              icon={Radio}
+              label={t("statBroadcasts")}
+              value={account.counts.broadcasts}
+            />
           </div>
 
           <ClientPurchases
@@ -292,20 +312,20 @@ export function ClientDetail({ accountId }: { accountId: string }) {
           {/* Members */}
           <div>
             <h2 className="mb-2 text-sm font-semibold text-foreground">
-              Members ({account.member_count})
+              {t("membersTitle", { count: account.member_count })}
             </h2>
             <div className="rounded-xl ring-1 ring-foreground/10">
               {account.members.length === 0 ? (
                 <div className="p-6 text-center text-sm text-muted-foreground">
-                  No members.
+                  {t("noMembers")}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
+                      <TableHead>{t("colName")}</TableHead>
+                      <TableHead>{t("colEmail")}</TableHead>
+                      <TableHead>{t("colRole")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>

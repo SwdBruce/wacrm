@@ -94,6 +94,12 @@ export function WhatsAppConfig() {
       ? `${window.location.origin}/api/whatsapp/webhook`
       : '';
 
+  const richStrong = {
+    strong: (chunks: React.ReactNode) => (
+      <strong className="text-foreground">{chunks}</strong>
+    ),
+  };
+
   const fetchConfig = useCallback(async (acctId: string) => {
     setLoading(true);
     try {
@@ -498,15 +504,11 @@ export function WhatsAppConfig() {
             </div>
             <AlertDescription className="text-muted-foreground mt-2 text-xs leading-relaxed">
               {isRegistered ? (
-                <span
-                  dangerouslySetInnerHTML={{
-                    __html: t('subscribedSince', {
-                      date: config.registered_at
-                        ? new Date(config.registered_at).toLocaleString()
-                        : t('unknownDate'),
-                    }),
-                  }}
-                />
+                t('subscribedSince', {
+                  date: config.registered_at
+                    ? new Date(config.registered_at).toLocaleString()
+                    : t('unknownDate'),
+                })
               ) : lastRegistrationError ? (
                 <>
                   {t('lastAttemptFailed')}
@@ -647,7 +649,7 @@ export function WhatsAppConfig() {
                 className="bg-muted border-border text-foreground placeholder:text-muted-foreground tracking-widest"
               />
               <p className="text-xs text-muted-foreground leading-relaxed">
-                <span dangerouslySetInnerHTML={{ __html: t('pinHint') }} />
+                {t('pinHint')}
               </p>
             </div>
           </CardContent>
@@ -760,7 +762,7 @@ export function WhatsAppConfig() {
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground">
                   <ol className="list-decimal list-inside space-y-1 text-sm">
-                    <li dangerouslySetInnerHTML={{ __html: t('step1_1') }} />
+                    <li>{t('step1_1')}</li>
                     <li>{t('step1_2')}</li>
                     <li>{t('step1_3')}</li>
                     <li>{t('step1_4')}</li>
@@ -794,9 +796,9 @@ export function WhatsAppConfig() {
                 <AccordionContent className="text-muted-foreground">
                   <ol className="list-decimal list-inside space-y-1 text-sm">
                     <li>{t('step3_1')}</li>
-                    <li dangerouslySetInnerHTML={{ __html: t('step3_2') }} />
-                    <li dangerouslySetInnerHTML={{ __html: t('step3_3') }} />
-                    <li dangerouslySetInnerHTML={{ __html: t('step3_4') }} />
+                    <li>{t.rich('step3_2', richStrong)}</li>
+                    <li>{t.rich('step3_3', richStrong)}</li>
+                    <li>{t.rich('step3_4', richStrong)}</li>
                   </ol>
                 </AccordionContent>
               </AccordionItem>
@@ -812,8 +814,8 @@ export function WhatsAppConfig() {
                   <ol className="list-decimal list-inside space-y-1 text-sm">
                     <li>{t('step4_1')}</li>
                     <li>{t('step4_2')}</li>
-                    <li dangerouslySetInnerHTML={{ __html: t('step4_3') }} />
-                    <li dangerouslySetInnerHTML={{ __html: t('step4_4') }} />
+                    <li>{t.rich('step4_3', richStrong)}</li>
+                    <li>{t.rich('step4_4', richStrong)}</li>
                     <li>{t('step4_5')}</li>
                   </ol>
                 </AccordionContent>

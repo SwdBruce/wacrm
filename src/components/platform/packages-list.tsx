@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Loader2, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -63,6 +64,8 @@ function PackageFormDialog({
     categories: MessagePackageCategory[];
   }) => Promise<void>;
 }) {
+  const t = useTranslations("Platform.packages");
+  const tCommon = useTranslations("Platform.common");
   const [form, setForm] = useState(initial);
   const [saving, setSaving] = useState(false);
 
@@ -84,19 +87,19 @@ function PackageFormDialog({
     const unit_price = Number(form.unit_price);
     const duration_days = Number(form.duration_days);
     if (!Number.isFinite(quantity) || quantity <= 0) {
-      toast.error("Quantity must be a positive number");
+      toast.error(t("quantityError"));
       return;
     }
     if (!Number.isFinite(unit_price) || unit_price < 0) {
-      toast.error("Unit price must be zero or greater");
+      toast.error(t("unitPriceError"));
       return;
     }
     if (!Number.isFinite(duration_days) || duration_days <= 0) {
-      toast.error("Duration must be a positive number of days");
+      toast.error(t("durationError"));
       return;
     }
     if (form.categories.length === 0) {
-      toast.error("Select at least one category");
+      toast.error(t("categoriesError"));
       return;
     }
 
@@ -110,7 +113,7 @@ function PackageFormDialog({
       });
       onOpenChange(false);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Save failed");
+      toast.error(err instanceof Error ? err.message : t("saveFailed"));
     } finally {
       setSaving(false);
     }
@@ -121,14 +124,12 @@ function PackageFormDialog({
       <DialogContent className="border-border bg-popover sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Credit pack size, unit price, validity window, and Meta categories.
-          </DialogDescription>
+          <DialogDescription>{t("formDesc")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-1.5">
-            <Label htmlFor="pkg-quantity">Quantity</Label>
+            <Label htmlFor="pkg-quantity">{t("quantityLabel")}</Label>
             <Input
               id="pkg-quantity"
               type="number"
@@ -140,7 +141,7 @@ function PackageFormDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="pkg-price">Unit price</Label>
+            <Label htmlFor="pkg-price">{t("unitPriceLabel")}</Label>
             <Input
               id="pkg-price"
               type="number"
@@ -153,7 +154,7 @@ function PackageFormDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="pkg-duration">Duration (days)</Label>
+            <Label htmlFor="pkg-duration">{t("durationLabel")}</Label>
             <Input
               id="pkg-duration"
               type="number"
@@ -168,7 +169,7 @@ function PackageFormDialog({
             />
           </div>
           <div className="space-y-2">
-            <Label>Categories</Label>
+            <Label>{t("categoriesLabel")}</Label>
             <div className="space-y-2">
               {MESSAGE_PACKAGE_CATEGORIES.map((category) => (
                 <label
@@ -192,11 +193,11 @@ function PackageFormDialog({
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Cancel
+            {tCommon("cancel")}
           </Button>
           <Button onClick={() => void handleSave()} disabled={saving}>
             {saving ? <Loader2 className="animate-spin" /> : null}
-            Save
+            {tCommon("save")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -205,6 +206,7 @@ function PackageFormDialog({
 }
 
 export function PackagesList() {
+  const t = useTranslations("Platform.packages");
   const [packages, setPackages] = useState<MessagePackage[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -217,10 +219,10 @@ export function PackagesList() {
     try {
       const res = await fetch("/api/platform/packages");
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data?.error ?? "Failed to load packages");
+      if (!res.ok) throw new Error(data?.error ?? t("loadError"));
       setPackages(data.packages ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load packages");
+      setError(err instanceof Error ? err.message : t("loadError"));
     } finally {
       setLoading(false);
     }
@@ -228,6 +230,7 @@ export function PackagesList() {
 
   useEffect(() => {
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function createPackage(values: {
@@ -242,8 +245,8 @@ export function PackagesList() {
       body: JSON.stringify(values),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error ?? "Failed to create package");
-    toast.success("Package created");
+    if (!res.ok) throw new Error(data?.error ?? t("createError"));
+    toast.success(t("createdToast"));
     await load();
   }
 
@@ -260,8 +263,8 @@ export function PackagesList() {
       body: JSON.stringify(values),
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data?.error ?? "Failed to update package");
-    toast.success("Package updated");
+    if (!res.ok) throw new Error(data?.error ?? t("updateError"));
+    toast.success(t("updatedToast"));
     setEditTarget(null);
     await load();
   }
@@ -269,7 +272,10 @@ export function PackagesList() {
   async function deletePackage(pkg: MessagePackage) {
     if (
       !window.confirm(
-        `Delete pack ${pkg.quantity.toLocaleString()} @ ${pkg.unit_price}?`,
+        t("deleteConfirm", {
+          quantity: pkg.quantity.toLocaleString(),
+          price: pkg.unit_price,
+        }),
       )
     ) {
       return;
@@ -279,10 +285,10 @@ export function PackagesList() {
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      toast.error(data?.error ?? "Failed to delete package");
+      toast.error(data?.error ?? t("deleteError"));
       return;
     }
-    toast.success("Package deleted");
+    toast.success(t("deletedToast"));
     await load();
   }
 
@@ -293,16 +299,14 @@ export function PackagesList() {
           <div className="flex items-center gap-2">
             <Package className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Packages
+              {t("title")}
             </h1>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Message credit packs you assign to client organisations.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
           <Plus />
-          New package
+          {t("newPackage")}
         </Button>
       </div>
 
@@ -315,16 +319,16 @@ export function PackagesList() {
           </div>
         ) : (packages?.length ?? 0) === 0 ? (
           <div className="p-6 text-center text-sm text-muted-foreground">
-            No packages yet. Create the first credit pack.
+            {t("empty")}
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Quantity</TableHead>
-                <TableHead>Unit price</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead>Categories</TableHead>
+                <TableHead>{t("colQuantity")}</TableHead>
+                <TableHead>{t("colUnitPrice")}</TableHead>
+                <TableHead>{t("colDuration")}</TableHead>
+                <TableHead>{t("colCategories")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -338,7 +342,7 @@ export function PackagesList() {
                     {pkg.unit_price.toFixed(2)}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {pkg.duration_days} days
+                    {t("durationDays", { count: pkg.duration_days })}
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
@@ -355,7 +359,7 @@ export function PackagesList() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => setEditTarget(pkg)}
-                        aria-label="Edit package"
+                        aria-label={t("editAria")}
                       >
                         <Pencil />
                       </Button>
@@ -363,7 +367,7 @@ export function PackagesList() {
                         variant="ghost"
                         size="icon-sm"
                         onClick={() => void deletePackage(pkg)}
-                        aria-label="Delete package"
+                        aria-label={t("deleteAria")}
                       >
                         <Trash2 />
                       </Button>
@@ -380,7 +384,7 @@ export function PackagesList() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         initial={EMPTY_FORM}
-        title="New package"
+        title={t("newPackage")}
         onSubmit={createPackage}
       />
 
@@ -399,7 +403,7 @@ export function PackagesList() {
               }
             : EMPTY_FORM
         }
-        title="Edit package"
+        title={t("editPackage")}
         onSubmit={updatePackage}
       />
     </div>

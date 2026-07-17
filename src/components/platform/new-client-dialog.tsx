@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Copy, Loader2, MessageCircle, Sparkles } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -35,22 +36,24 @@ interface CreatedClient {
   expiresInDays: number;
 }
 
-const EXPIRY_OPTIONS = [
-  { value: "1", label: "1 day" },
-  { value: "7", label: "7 days" },
-  { value: "30", label: "30 days" },
-];
-
 export function NewClientDialog({
   open,
   onOpenChange,
   onCreated,
 }: NewClientDialogProps) {
+  const t = useTranslations("Platform.newClient");
+  const tCommon = useTranslations("Platform.common");
   const [name, setName] = useState("");
   const [ruc, setRuc] = useState("");
   const [expiry, setExpiry] = useState("7");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedClient | null>(null);
+
+  const expiryOptions = [
+    { value: "1", label: t("days1") },
+    { value: "7", label: t("days7") },
+    { value: "30", label: t("days30") },
+  ];
 
   function reset() {
     setName("");
@@ -63,12 +66,12 @@ export function NewClientDialog({
   async function createClient() {
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Organisation name is required");
+      toast.error(t("nameRequired"));
       return;
     }
     const trimmedRuc = ruc.trim();
     if (trimmedRuc.length > 32) {
-      toast.error("RUC must be 32 characters or fewer");
+      toast.error(t("rucTooLong"));
       return;
     }
 
@@ -85,7 +88,7 @@ export function NewClientDialog({
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        toast.error(data?.error ?? "Failed to create organisation");
+        toast.error(data?.error ?? t("createError"));
         return;
       }
 
@@ -97,7 +100,7 @@ export function NewClientDialog({
       onCreated();
     } catch (error) {
       console.error("[NewClientDialog] create error:", error);
-      toast.error("Could not reach the server. Try again.");
+      toast.error(t("networkError"));
     } finally {
       setSubmitting(false);
     }
@@ -107,14 +110,18 @@ export function NewClientDialog({
     if (!result) return;
     try {
       await navigator.clipboard.writeText(result.url);
-      toast.success("Owner invitation link copied");
+      toast.success(t("copiedToast"));
     } catch {
-      toast.error("Copy failed. Select the link and copy it manually.");
+      toast.error(t("copyFailed"));
     }
   }
 
   function whatsappShareUrl(created: CreatedClient): string {
-    const message = `You have been invited as the owner of ${created.name}. This link expires in ${created.expiresInDays} days: ${created.url}`;
+    const message = t("whatsappMessage", {
+      name: created.name,
+      days: created.expiresInDays,
+      url: created.url,
+    });
     return `https://wa.me/?text=${encodeURIComponent(message)}`;
   }
 
@@ -132,16 +139,15 @@ export function NewClientDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-popover-foreground">
                 <Sparkles className="size-4 text-primary" />
-                Organisation created
+                {t("createdTitle")}
               </DialogTitle>
               <DialogDescription>
-                {result.name} is ready. Send this one-time link to the person
-                who will own the organisation.
+                {t("createdDesc", { name: result.name })}
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-3 py-2">
-              <Label htmlFor="owner-invite-url">Owner invitation link</Label>
+              <Label htmlFor="owner-invite-url">{t("inviteLinkLabel")}</Label>
               <div className="flex gap-2">
                 <Input
                   id="owner-invite-url"
@@ -152,16 +158,15 @@ export function NewClientDialog({
                 />
                 <Button type="button" onClick={() => void copyLink()}>
                   <Copy />
-                  Copy
+                  {tCommon("copy")}
                 </Button>
               </div>
 
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
                 <strong className="font-semibold text-amber-100">
-                  Save this link now.
+                  {t("saveLinkNow")}
                 </strong>{" "}
-                Only its hash is stored, so it cannot be shown again after
-                closing this window.
+                {t("saveLinkHint")}
               </div>
 
               <a
@@ -174,32 +179,32 @@ export function NewClientDialog({
                 })}
               >
                 <MessageCircle />
-                Send via WhatsApp
+                {t("sendViaWhatsApp")}
               </a>
             </div>
 
             <DialogFooter>
-              <Button onClick={() => onOpenChange(false)}>Done</Button>
+              <Button onClick={() => onOpenChange(false)}>
+                {tCommon("done")}
+              </Button>
             </DialogFooter>
           </>
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>New client organisation</DialogTitle>
-              <DialogDescription>
-                Create an isolated CRM and generate its owner invitation.
-              </DialogDescription>
+              <DialogTitle>{t("title")}</DialogTitle>
+              <DialogDescription>{t("description")}</DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-2">
               <div className="space-y-1.5">
-                <Label htmlFor="client-name">Organisation name</Label>
+                <Label htmlFor="client-name">{t("nameLabel")}</Label>
                 <Input
                   id="client-name"
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={100}
-                  placeholder="Type your organisation name"
+                  placeholder={t("namePlaceholder")}
                   autoFocus
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void createClient();
@@ -209,9 +214,9 @@ export function NewClientDialog({
 
               <div className="space-y-1.5">
                 <Label htmlFor="client-ruc">
-                  RUC{" "}
+                  {t("rucLabel")}{" "}
                   <span className="font-normal text-muted-foreground">
-                    (optional)
+                    {tCommon("optional")}
                   </span>
                 </Label>
                 <Input
@@ -219,7 +224,7 @@ export function NewClientDialog({
                   value={ruc}
                   onChange={(event) => setRuc(event.target.value)}
                   maxLength={32}
-                  placeholder="e.g. 20123456789"
+                  placeholder={t("rucPlaceholder")}
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void createClient();
                   }}
@@ -227,13 +232,13 @@ export function NewClientDialog({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="owner-invite-expiry">Link expires in</Label>
+                <Label htmlFor="owner-invite-expiry">{t("expiryLabel")}</Label>
                 <Select value={expiry} onValueChange={(value) => setExpiry(value ?? "7")}>
                   <SelectTrigger id="owner-invite-expiry">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {EXPIRY_OPTIONS.map((option) => (
+                    {expiryOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -249,14 +254,14 @@ export function NewClientDialog({
                 onClick={() => onOpenChange(false)}
                 disabled={submitting}
               >
-                Cancel
+                {tCommon("cancel")}
               </Button>
               <Button
                 onClick={() => void createClient()}
                 disabled={submitting || !name.trim()}
               >
                 {submitting ? <Loader2 className="animate-spin" /> : null}
-                Create & generate link
+                {t("createBtn")}
               </Button>
             </DialogFooter>
           </>

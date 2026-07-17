@@ -11,6 +11,7 @@ import {
   Search,
   Users as UsersIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { AssignPackageDialog } from "@/components/platform/assign-package-dialog";
 import { Badge } from "@/components/ui/badge";
@@ -32,10 +33,12 @@ function WhatsAppBadge({
 }: {
   whatsapp: PlatformAccountSummary["whatsapp"];
 }) {
+  const t = useTranslations("Platform.common");
+
   if (!whatsapp) {
     return (
       <Badge variant="outline" className="text-muted-foreground">
-        No config
+        {t("noConfig")}
       </Badge>
     );
   }
@@ -45,7 +48,7 @@ function WhatsAppBadge({
       variant={connected ? "default" : "outline"}
       className={connected ? "" : "text-muted-foreground"}
     >
-      {connected ? "Connected" : "Disconnected"}
+      {connected ? t("connected") : t("disconnected")}
     </Badge>
   );
 }
@@ -63,6 +66,8 @@ function formatDate(iso: string): string {
 }
 
 export function ClientsList() {
+  const t = useTranslations("Platform.clients");
+  const tCommon = useTranslations("Platform.common");
   const [accounts, setAccounts] = useState<PlatformAccountSummary[] | null>(
     null,
   );
@@ -81,11 +86,11 @@ export function ClientsList() {
       const res = await fetch("/api/platform/accounts");
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data?.error ?? "Failed to load clients");
+        throw new Error(data?.error ?? t("loadError"));
       }
       setAccounts(data.accounts ?? []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load clients");
+      setError(err instanceof Error ? err.message : t("loadError"));
     } finally {
       setLoading(false);
     }
@@ -117,7 +122,7 @@ export function ClientsList() {
           <div className="flex items-center gap-2">
             <Building2 className="h-6 w-6 text-primary" />
             <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              Clients
+              {t("title")}
             </h1>
             {accounts ? (
               <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
@@ -125,10 +130,7 @@ export function ClientsList() {
               </span>
             ) : null}
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Every organisation on this deployment. Only you, the platform
-            owner, can see this.
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -138,7 +140,7 @@ export function ClientsList() {
             disabled={loading}
           >
             <RefreshCw className={loading ? "animate-spin" : undefined} />
-            Refresh
+            {t("refresh")}
           </Button>
           <Button
             variant="outline"
@@ -149,11 +151,11 @@ export function ClientsList() {
             }}
           >
             <Package />
-            Assign package
+            {t("assignPackage")}
           </Button>
           <Button size="sm" onClick={() => setCreateOpen(true)}>
             <Plus />
-            New client
+            {t("newClient")}
           </Button>
         </div>
       </div>
@@ -163,7 +165,7 @@ export function ClientsList() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, RUC, owner, or phone id"
+          placeholder={t("searchPlaceholder")}
           className="pl-8"
         />
       </div>
@@ -181,19 +183,19 @@ export function ClientsList() {
           <div className="flex h-40 flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
             <UsersIcon className="h-6 w-6" />
             {accounts && accounts.length === 0
-              ? "No client organisations yet."
-              : "No clients match your search."}
+              ? t("empty")
+              : t("emptySearch")}
           </div>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Organisation</TableHead>
-                <TableHead>RUC</TableHead>
-                <TableHead>Owner</TableHead>
-                <TableHead>Members</TableHead>
-                <TableHead>WhatsApp</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead>{t("colOrganisation")}</TableHead>
+                <TableHead>{t("colRuc")}</TableHead>
+                <TableHead>{t("colOwner")}</TableHead>
+                <TableHead>{t("colMembers")}</TableHead>
+                <TableHead>{t("colWhatsapp")}</TableHead>
+                <TableHead>{t("colCreated")}</TableHead>
                 <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
@@ -209,13 +211,13 @@ export function ClientsList() {
                     </Link>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">
-                    {a.ruc ?? "—"}
+                    {a.ruc ?? tCommon("emDash")}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {a.owner ? (
                       <div className="flex flex-col">
                         <span className="text-foreground">
-                          {a.owner.full_name ?? "—"}
+                          {a.owner.full_name ?? tCommon("emDash")}
                         </span>
                         {a.owner.email ? (
                           <span className="text-xs">{a.owner.email}</span>
@@ -223,7 +225,7 @@ export function ClientsList() {
                       </div>
                     ) : (
                       <Badge variant="outline" className="text-amber-300">
-                        Pending owner
+                        {t("pendingOwner")}
                       </Badge>
                     )}
                   </TableCell>
@@ -245,7 +247,7 @@ export function ClientsList() {
                           setAssignTarget(a);
                           setAssignOpen(true);
                         }}
-                        aria-label={`Assign package to ${a.name}`}
+                        aria-label={t("assignAria", { name: a.name })}
                       >
                         <Package />
                       </Button>
@@ -256,7 +258,7 @@ export function ClientsList() {
                         render={
                           <Link
                             href={`/platform/clients/${a.id}`}
-                            aria-label={`Open ${a.name}`}
+                            aria-label={t("openAria", { name: a.name })}
                           />
                         }
                       >
