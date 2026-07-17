@@ -12,6 +12,15 @@ import {
   isRecipientNotAllowedError,
 } from '@/lib/whatsapp/phone-utils'
 import { supabaseAdmin } from './admin-client'
+import {
+  MessageCreditError,
+  recordMessageCreditUsage,
+  requirePackageCategory,
+  selectPurchaseForCategory,
+} from '@/lib/platform/message-credits'
+import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard'
+import type { MessageTemplate } from '@/types'
+import type { AccountMessagePurchase } from '@/lib/platform/message-packages'
 
 // ------------------------------------------------------------
 // Automation-side Meta sender.
@@ -142,6 +151,37 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
 
   const accessToken = decrypt(config.access_token)
 
+  let templateRow: MessageTemplate | null = null
+  let creditPurchase: AccountMessagePurchase | null = null
+  if (input.kind === 'template') {
+    const language = input.language || 'en_US'
+    const { data: rawTemplate } = await db
+      .from('message_templates')
+      .select('*')
+      .eq('account_id', input.accountId)
+      .eq('name', input.templateName)
+      .eq('language', language)
+      .maybeSingle()
+    if (rawTemplate && isMessageTemplate(rawTemplate)) {
+      templateRow = rawTemplate
+    }
+    try {
+      const category = requirePackageCategory(templateRow?.category)
+      creditPurchase = await selectPurchaseForCategory(
+        input.accountId,
+        category,
+      )
+      if (!creditPurchase) {
+        throw new MessageCreditError(
+          `No message credits available for ${category} templates`,
+        )
+      }
+    } catch (err) {
+      if (err instanceof MessageCreditError) throw err
+      throw err
+    }
+  }
+
   const attempt = async (phone: string): Promise<string> => {
     if (input.kind === 'template') {
       const r = await sendTemplateMessage({
@@ -150,6 +190,7 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
         to: phone,
         templateName: input.templateName,
         language: input.language,
+        template: templateRow ?? undefined,
         params: input.params,
       })
       return r.messageId
@@ -183,6 +224,10 @@ async function sendViaMeta(input: SendInput): Promise<{ whatsapp_message_id: str
     }
   }
   if (lastError) throw lastError
+
+  if (creditPurchase) {
+    await recordMessageCreditUsage(input.accountId, creditPurchase.id)
+  }
 
   if (workingPhone !== sanitized) {
     await db.from('contacts').update({ phone: workingPhone }).eq('id', contact.id)

@@ -29,6 +29,14 @@ import {
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
 import type { MessageTemplate } from '@/types';
 import { findOrCreateContact } from '@/lib/api/v1/contacts';
+import {
+  assertCreditsAvailable,
+  MessageCreditError,
+  recordMessageCreditUsage,
+  requirePackageCategory,
+  selectPurchaseForCategory,
+} from '@/lib/platform/message-credits';
+import type { MessagePackageCategory } from '@/lib/platform/message-packages';
 
 /** Thrown by createBroadcast on a caller-visible failure; route maps it. */
 export class BroadcastError extends Error {
@@ -64,11 +72,14 @@ interface PlannedRecipient {
 
 export interface BroadcastPlan {
   broadcastId: string;
+  accountId: string;
   templateName: string;
   templateLanguage: string;
   phoneNumberId: string;
   accessToken: string;
   templateRow: MessageTemplate | null;
+  /** Package category used for credit debit (resolved at create). */
+  creditCategory: MessagePackageCategory;
   planned: PlannedRecipient[];
   /** Phones rejected up front (invalid E.164) — counted as failed. */
   rejected: number;
@@ -143,6 +154,16 @@ export async function createBroadcast(
   }
   const templateRow = (rawTemplateRow as MessageTemplate | null) ?? null;
 
+  let creditCategory: MessagePackageCategory;
+  try {
+    creditCategory = requirePackageCategory(templateRow?.category);
+  } catch (err) {
+    if (err instanceof MessageCreditError) {
+      throw new BroadcastError(err.code, err.message, err.status);
+    }
+    throw err;
+  }
+
   // Resolve each recipient to a contact. Invalid phones are dropped
   // (counted as rejected) rather than aborting the whole broadcast.
   const resolved: { contactId: string; phone: string; params: string[] }[] = [];
@@ -183,6 +204,15 @@ export async function createBroadcast(
       'No recipients had a valid E.164 phone number',
       400
     );
+  }
+
+  try {
+    await assertCreditsAvailable(accountId, creditCategory, deduped.length);
+  } catch (err) {
+    if (err instanceof MessageCreditError) {
+      throw new BroadcastError(err.code, err.message, err.status);
+    }
+    throw err;
   }
 
   // Persist the broadcast + its recipients. The count columns
@@ -236,11 +266,13 @@ export async function createBroadcast(
 
   return {
     broadcastId: broadcast.id,
+    accountId,
     templateName,
     templateLanguage,
     phoneNumberId: config.phone_number_id,
     accessToken,
     templateRow,
+    creditCategory,
     planned,
     rejected,
   };
@@ -294,6 +326,22 @@ export async function deliverBroadcast(
 
     if (sentMessageId) {
       sentCount++;
+      const purchase = await selectPurchaseForCategory(
+        plan.accountId,
+        plan.creditCategory,
+      );
+      if (purchase) {
+        await recordMessageCreditUsage(plan.accountId, purchase.id);
+      } else {
+        console.error(
+          '[deliverBroadcast] sent without credits remaining — overspend',
+          {
+            accountId: plan.accountId,
+            category: plan.creditCategory,
+            broadcastId: plan.broadcastId,
+          },
+        );
+      }
       await db
         .from('broadcast_recipients')
         .update({

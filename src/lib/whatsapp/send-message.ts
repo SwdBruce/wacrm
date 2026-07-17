@@ -44,6 +44,13 @@ import {
 } from '@/lib/whatsapp/phone-utils';
 import type { MessageTemplate } from '@/types';
 import { isMessageTemplate } from '@/lib/whatsapp/template-row-guard';
+import {
+  MessageCreditError,
+  recordMessageCreditUsage,
+  requirePackageCategory,
+  selectPurchaseForCategory,
+} from '@/lib/platform/message-credits';
+import type { AccountMessagePurchase } from '@/lib/platform/message-packages';
 
 export const MEDIA_KINDS = ['image', 'video', 'document', 'audio'] as const;
 export const VALID_MESSAGE_TYPES = [
@@ -329,6 +336,26 @@ export async function sendMessageToConversation(
     templateRow = data ?? null;
   }
 
+  // Credits gate (templates only). Resolve purchase before Meta so we
+  // never send when the org has no active pack for this category.
+  let creditPurchase: AccountMessagePurchase | null = null;
+  if (messageType === 'template') {
+    try {
+      const category = requirePackageCategory(templateRow?.category);
+      creditPurchase = await selectPurchaseForCategory(accountId, category);
+      if (!creditPurchase) {
+        throw new MessageCreditError(
+          `No message credits available for ${category} templates`,
+        );
+      }
+    } catch (err) {
+      if (err instanceof MessageCreditError) {
+        throw new SendMessageError(err.code, err.message, err.status);
+      }
+      throw err;
+    }
+  }
+
   const attempt = async (phone: string): Promise<string> => {
     if (messageType === 'template') {
       const result = await sendTemplateMessage({
@@ -428,6 +455,10 @@ export async function sendMessageToConversation(
       err instanceof Error ? err.message : 'Unknown Meta API error';
     console.error('[send-message] Meta send failed for all variants:', message);
     throw new SendMessageError('meta_error', `Meta API error: ${message}`, 502);
+  }
+
+  if (creditPurchase) {
+    await recordMessageCreditUsage(accountId, creditPurchase.id);
   }
 
   if (workingPhone !== sanitizedPhone) {

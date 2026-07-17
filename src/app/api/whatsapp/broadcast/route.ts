@@ -15,6 +15,14 @@ import {
   rateLimitResponse,
   RATE_LIMITS,
 } from '@/lib/rate-limit'
+import {
+  assertCreditsAvailable,
+  MessageCreditError,
+  recordMessageCreditUsage,
+  requirePackageCategory,
+  selectPurchaseForCategory,
+} from '@/lib/platform/message-credits'
+import type { MessagePackageCategory } from '@/lib/platform/message-packages'
 
 interface BroadcastResult {
   phone: string
@@ -175,6 +183,20 @@ export async function POST(request: Request) {
     }
     const templateRow = rawTemplateRow ?? null
 
+    let creditCategory: MessagePackageCategory
+    try {
+      creditCategory = requirePackageCategory(templateRow?.category)
+      await assertCreditsAvailable(accountId, creditCategory, recipients.length)
+    } catch (err) {
+      if (err instanceof MessageCreditError) {
+        return NextResponse.json(
+          { error: err.message, code: err.code },
+          { status: err.status },
+        )
+      }
+      throw err
+    }
+
     const results: BroadcastResult[] = []
     let sentCount = 0
     let failedCount = 0
@@ -226,6 +248,13 @@ export async function POST(request: Request) {
       }
 
       if (sentMessageId) {
+        const purchase = await selectPurchaseForCategory(
+          accountId,
+          creditCategory,
+        )
+        if (purchase) {
+          await recordMessageCreditUsage(accountId, purchase.id)
+        }
         results.push({
           phone: recipient.phone,
           status: 'sent',

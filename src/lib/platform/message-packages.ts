@@ -36,14 +36,19 @@ export interface AccountMessagePurchase {
   starts_at: string;
   ends_at: string;
   created_at: string;
-  /** From the linked package (fratalk-style join). */
+  /** Catalog pack size (message_packages.quantity). */
   quantity: number;
+  /**
+   * When set by platform owner, replaces `quantity` for credit maths.
+   * remaining = max(0, (quantity_override ?? quantity) - used).
+   */
+  quantity_override: number | null;
   unit_price: number;
   duration_days: number;
   categories: MessagePackageCategory[];
   /** COUNT of message_credit_usages for this purchase. */
   used: number;
-  /** quantity - used (floored at 0). */
+  /** effective_quantity - used (floored at 0). */
   remaining: number;
   /** True when today is within [starts_at, ends_at]. */
   is_active: boolean;
