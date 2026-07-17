@@ -23,6 +23,8 @@ export interface PlatformAccountOwner {
 export interface PlatformAccountSummary {
   id: string;
   name: string;
+  /** Optional tax ID (e.g. Peru RUC). */
+  ruc: string | null;
   created_at: string;
   owner: PlatformAccountOwner | null;
   member_count: number;

@@ -102,6 +102,7 @@ export function ClientsList() {
     return accounts.filter((a) => {
       return (
         a.name.toLowerCase().includes(q) ||
+        (a.ruc?.toLowerCase().includes(q) ?? false) ||
         a.owner?.full_name?.toLowerCase().includes(q) ||
         a.owner?.email?.toLowerCase().includes(q) ||
         a.whatsapp?.phone_number_id?.toLowerCase().includes(q)
@@ -162,7 +163,7 @@ export function ClientsList() {
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search by name, owner, or phone id"
+          placeholder="Search by name, RUC, owner, or phone id"
           className="pl-8"
         />
       </div>
@@ -188,6 +189,7 @@ export function ClientsList() {
             <TableHeader>
               <TableRow>
                 <TableHead>Organisation</TableHead>
+                <TableHead>RUC</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead>Members</TableHead>
                 <TableHead>WhatsApp</TableHead>
@@ -205,6 +207,9 @@ export function ClientsList() {
                     >
                       {a.name}
                     </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-sm text-muted-foreground">
+                    {a.ruc ?? "—"}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {a.owner ? (

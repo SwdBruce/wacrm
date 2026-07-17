@@ -25,10 +25,12 @@ import type {
 } from "@/lib/platform/types";
 
 const MAX_NAME_LENGTH = 100;
+const MAX_RUC_LENGTH = 32;
 
 interface AccountRow {
   id: string;
   name: string;
+  ruc: string | null;
   owner_user_id: string | null;
   created_at: string;
 }
@@ -72,7 +74,7 @@ export async function GET(
 
     const { data: account, error: accountErr } = await db
       .from("accounts")
-      .select("id, name, owner_user_id, created_at")
+      .select("id, name, ruc, owner_user_id, created_at")
       .eq("id", id)
       .maybeSingle<AccountRow>();
 
@@ -139,6 +141,7 @@ export async function GET(
     const detail: PlatformAccountDetail = {
       id: account.id,
       name: account.name,
+      ruc: account.ruc ?? null,
       created_at: account.created_at,
       owner: owner
         ? { user_id: owner.user_id, full_name: owner.full_name, email: owner.email }
@@ -178,31 +181,72 @@ export async function PATCH(
     const { id } = await params;
 
     const body = (await request.json().catch(() => null)) as
-      | { name?: unknown }
+      | { name?: unknown; ruc?: unknown }
       | null;
-    const rawName = typeof body?.name === "string" ? body.name.trim() : "";
 
-    if (!rawName) {
+    const hasName = typeof body?.name === "string";
+    const hasRuc = Object.prototype.hasOwnProperty.call(body ?? {}, "ruc");
+
+    if (!hasName && !hasRuc) {
       return NextResponse.json(
-        { error: "'name' is required" },
+        { error: "Provide 'name' and/or 'ruc'" },
         { status: 400 },
       );
     }
-    if (rawName.length > MAX_NAME_LENGTH) {
-      return NextResponse.json(
-        { error: `'name' must be ${MAX_NAME_LENGTH} characters or fewer` },
-        { status: 400 },
-      );
+
+    const patch: { name?: string; ruc?: string | null } = {};
+
+    if (hasName) {
+      const rawName = (body!.name as string).trim();
+      if (!rawName) {
+        return NextResponse.json(
+          { error: "'name' is required" },
+          { status: 400 },
+        );
+      }
+      if (rawName.length > MAX_NAME_LENGTH) {
+        return NextResponse.json(
+          { error: `'name' must be ${MAX_NAME_LENGTH} characters or fewer` },
+          { status: 400 },
+        );
+      }
+      patch.name = rawName;
+    }
+
+    if (hasRuc) {
+      if (body!.ruc === null || body!.ruc === "") {
+        patch.ruc = null;
+      } else if (typeof body!.ruc === "string") {
+        const rawRuc = body!.ruc.trim();
+        if (rawRuc.length > MAX_RUC_LENGTH) {
+          return NextResponse.json(
+            { error: `'ruc' must be ${MAX_RUC_LENGTH} characters or fewer` },
+            { status: 400 },
+          );
+        }
+        patch.ruc = rawRuc.length > 0 ? rawRuc : null;
+      } else {
+        return NextResponse.json(
+          { error: "'ruc' must be a string or null" },
+          { status: 400 },
+        );
+      }
     }
 
     const { data, error } = await db
       .from("accounts")
-      .update({ name: rawName })
+      .update(patch)
       .eq("id", id)
-      .select("id, name")
-      .maybeSingle<{ id: string; name: string }>();
+      .select("id, name, ruc")
+      .maybeSingle<{ id: string; name: string; ruc: string | null }>();
 
     if (error) {
+      if (error.code === "23505") {
+        return NextResponse.json(
+          { error: "An organisation with this RUC already exists" },
+          { status: 409 },
+        );
+      }
       console.error("[PATCH platform account] update error:", error);
       return NextResponse.json(
         { error: "Failed to update account" },

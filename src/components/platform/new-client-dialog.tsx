@@ -47,12 +47,14 @@ export function NewClientDialog({
   onCreated,
 }: NewClientDialogProps) {
   const [name, setName] = useState("");
+  const [ruc, setRuc] = useState("");
   const [expiry, setExpiry] = useState("7");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedClient | null>(null);
 
   function reset() {
     setName("");
+    setRuc("");
     setExpiry("7");
     setSubmitting(false);
     setResult(null);
@@ -64,6 +66,11 @@ export function NewClientDialog({
       toast.error("Organisation name is required");
       return;
     }
+    const trimmedRuc = ruc.trim();
+    if (trimmedRuc.length > 32) {
+      toast.error("RUC must be 32 characters or fewer");
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -73,6 +80,7 @@ export function NewClientDialog({
         body: JSON.stringify({
           name: trimmed,
           expiresInDays: Number(expiry),
+          ...(trimmedRuc ? { ruc: trimmedRuc } : {}),
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -193,6 +201,25 @@ export function NewClientDialog({
                   maxLength={100}
                   placeholder="Type your organisation name"
                   autoFocus
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void createClient();
+                  }}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="client-ruc">
+                  RUC{" "}
+                  <span className="font-normal text-muted-foreground">
+                    (optional)
+                  </span>
+                </Label>
+                <Input
+                  id="client-ruc"
+                  value={ruc}
+                  onChange={(event) => setRuc(event.target.value)}
+                  maxLength={32}
+                  placeholder="e.g. 20123456789"
                   onKeyDown={(event) => {
                     if (event.key === "Enter") void createClient();
                   }}

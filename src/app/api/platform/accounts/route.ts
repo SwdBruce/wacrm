@@ -34,6 +34,7 @@ import type { PlatformAccountSummary } from "@/lib/platform/types";
 interface AccountRow {
   id: string;
   name: string;
+  ruc: string | null;
   owner_user_id: string | null;
   created_at: string;
 }
@@ -60,7 +61,7 @@ export async function GET() {
     const [accountsRes, profilesRes, whatsappRes] = await Promise.all([
       db
         .from("accounts")
-        .select("id, name, owner_user_id, created_at")
+        .select("id, name, ruc, owner_user_id, created_at")
         .order("created_at", { ascending: false }),
       db.from("profiles").select("user_id, full_name, email, account_id"),
       db
@@ -124,6 +125,7 @@ export async function GET() {
       return {
         id: a.id,
         name: a.name,
+        ruc: a.ruc ?? null,
         created_at: a.created_at,
         owner: ownerProfile
           ? {
@@ -169,9 +171,11 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = (await request.json().catch(() => null)) as
-      | { name?: unknown; expiresInDays?: unknown }
+      | { name?: unknown; expiresInDays?: unknown; ruc?: unknown }
       | null;
     const name = typeof body?.name === "string" ? body.name.trim() : "";
+    const rucRaw = typeof body?.ruc === "string" ? body.ruc.trim() : "";
+    const ruc = rucRaw.length > 0 ? rucRaw : null;
 
     if (!name) {
       return NextResponse.json(
@@ -182,6 +186,12 @@ export async function POST(request: Request) {
     if (name.length > 100) {
       return NextResponse.json(
         { error: "'name' must be 100 characters or fewer" },
+        { status: 400 },
+      );
+    }
+    if (ruc && ruc.length > 32) {
+      return NextResponse.json(
+        { error: "'ruc' must be 32 characters or fewer" },
         { status: 400 },
       );
     }
@@ -203,12 +213,19 @@ export async function POST(request: Request) {
         p_name: name,
         p_token_hash: hash,
         p_expires_at: expiresAt.toISOString(),
+        p_ruc: ruc,
       },
     );
 
     if (error || !data) {
       if (error?.code === "22023") {
         return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      if (error?.code === "23505") {
+        return NextResponse.json(
+          { error: error.message || "An organisation with this RUC already exists" },
+          { status: 409 },
+        );
       }
       if (error?.code === "42501") {
         return NextResponse.json({ error: error.message }, { status: 403 });
@@ -227,7 +244,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        account: { id: result.account_id, name },
+        account: { id: result.account_id, name, ruc },
         invitation: {
           id: result.invitation_id,
           role: "owner",

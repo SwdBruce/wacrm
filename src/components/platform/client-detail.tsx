@@ -232,6 +232,11 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                   }`
                 : "Owner invitation pending"}
             </p>
+            {account.ruc ? (
+              <p className="mt-0.5 font-mono text-sm text-muted-foreground">
+                RUC: {account.ruc}
+              </p>
+            ) : null}
           </div>
 
           {/* WhatsApp snapshot */}
