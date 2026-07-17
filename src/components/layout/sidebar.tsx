@@ -10,11 +10,13 @@ import { useUnreadNotifications } from "@/hooks/use-unread-notifications";
 import {
   Bell,
   Bot,
+  Building2,
   Crown,
   GitBranch,
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  Package,
   Radio,
   Settings,
   Shield,
@@ -105,6 +107,13 @@ const bottomNavItems = [
   { href: "/settings", labelKey: "settings", icon: Settings },
 ];
 
+// Platform-owner-only nav. Rendered in its own section, gated on
+// `isPlatformOwner` — invisible to every normal account member.
+const platformNavItems: NavItem[] = [
+  { href: "/platform/clients", labelKey: "platformClients", icon: Building2 },
+  { href: "/platform/packages", labelKey: "platformPackages", icon: Package },
+];
+
 interface SidebarProps {
   /** Controlled on mobile by the Header's hamburger button. Ignored on lg+. */
   open?: boolean;
@@ -116,7 +125,8 @@ import { useTranslations } from "next-intl";
 export function Sidebar({ open = false, onClose }: SidebarProps) {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
-  const { profile, profileLoading, account, accountRole, signOut } = useAuth();
+  const { profile, profileLoading, account, accountRole, isPlatformOwner, signOut } =
+    useAuth();
   const totalUnread = useTotalUnread();
   const unreadNotifications = useUnreadNotifications();
   // Only surface the account-name strip when it actually carries
@@ -291,6 +301,39 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
               );
             })}
           </ul>
+
+          {/* Platform section — only visible to platform owners. Gated
+              client-side for chrome; the /platform/* pages and their
+              APIs enforce the real check server-side. */}
+          {isPlatformOwner && (
+            <>
+              <div className="my-4 border-t border-border" />
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {t("platformSection")}
+              </p>
+              <ul className="flex flex-col gap-1">
+                {platformNavItems.map((item) => {
+                  const isActive = pathname.startsWith(item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors lg:py-2",
+                          isActive
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                        )}
+                      >
+                        <item.icon className="h-4 w-4" />
+                        {t(item.labelKey as string)}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
         </nav>
 
         {/* User section */}

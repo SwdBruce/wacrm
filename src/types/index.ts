@@ -45,6 +45,12 @@ export interface Profile {
    * `@/lib/auth/roles` rather than comparing this string directly.
    */
   account_role?: AccountRole;
+  /**
+   * Platform-wide super-admin flag (migration 037). Grants access to
+   * the cross-tenant "Clients" module. Independent of `account_role`.
+   * Optional on the type for older serialised payloads / fixtures.
+   */
+  is_platform_owner?: boolean;
   created_at: string;
 }
 
@@ -55,8 +61,11 @@ export interface Profile {
 export interface Account {
   id: string;
   name: string;
-  /** auth.users.id of the immutable owner. */
-  owner_user_id: string;
+  /**
+   * auth.users.id of the owner. Null only while a platform-created
+   * organisation is waiting for its bootstrap owner invitation.
+   */
+  owner_user_id: string | null;
   created_at: string;
   updated_at: string;
 }
