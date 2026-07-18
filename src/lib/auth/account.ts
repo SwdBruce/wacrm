@@ -88,7 +88,7 @@ export interface AccountContext {
   /** Caller's role within their account. */
   role: AccountRole;
   /** Lightweight account meta — id + name. */
-  account: { id: string; name: string };
+  account: { id: string; name: string; is_active: boolean };
 }
 
 /**
@@ -99,6 +99,8 @@ export interface AccountContext {
  * fields (shouldn't happen post-017 migration; defensive guard
  * against profile rows that pre-date the backfill or were
  * inserted by hand).
+ * Throws `ForbiddenError("Account is deactivated")` when the
+ * organisation has been soft-deactivated by a platform owner.
  *
  * Use `requireRole(min)` instead when the route also needs a
  * minimum-role check — it's a thin wrapper over this.
@@ -149,7 +151,7 @@ export async function getCurrentAccount(): Promise<AccountContext> {
   // RLS, so it stays robust against cache staleness and older schemas.
   const { data: account, error: accountErr } = await supabase
     .from("accounts")
-    .select("id, name")
+    .select("id, name, is_active")
     .eq("id", data.account_id)
     .maybeSingle();
 
@@ -163,12 +165,22 @@ export async function getCurrentAccount(): Promise<AccountContext> {
     throw new ForbiddenError("Profile is not linked to an account");
   }
 
+  // Soft-deactivated orgs retain the row (accounts SELECT still works)
+  // so we can return a clear error instead of "not linked".
+  if (account.is_active === false) {
+    throw new ForbiddenError("Account is deactivated");
+  }
+
   return {
     supabase,
     userId: user.id,
     accountId: data.account_id,
     role: data.account_role,
-    account: { id: account.id, name: account.name },
+    account: {
+      id: account.id,
+      name: account.name,
+      is_active: true,
+    },
   };
 }
 

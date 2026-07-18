@@ -83,7 +83,10 @@ describe("getCurrentAccount", () => {
           data: { account_id: "acct-1", account_role: "owner" },
           error: null,
         },
-        accounts: { data: { id: "acct-1", name: "Acme" }, error: null },
+        accounts: {
+          data: { id: "acct-1", name: "Acme", is_active: true },
+          error: null,
+        },
       },
     });
     createClient.mockReturnValue(client);
@@ -94,7 +97,7 @@ describe("getCurrentAccount", () => {
       userId: "user-1",
       accountId: "acct-1",
       role: "owner",
-      account: { id: "acct-1", name: "Acme" },
+      account: { id: "acct-1", name: "Acme", is_active: true },
     });
 
     // Two queries: profiles by user_id, then accounts by id. Neither
@@ -172,5 +175,25 @@ describe("getCurrentAccount", () => {
     await expect(getCurrentAccount()).rejects.toThrow(
       "Profile is not linked to an account",
     );
+  });
+
+  it("rejects a soft-deactivated organisation", async () => {
+    const { client } = makeClient({
+      user: { id: "user-1" },
+      byTable: {
+        profiles: {
+          data: { account_id: "acct-1", account_role: "owner" },
+          error: null,
+        },
+        accounts: {
+          data: { id: "acct-1", name: "Acme", is_active: false },
+          error: null,
+        },
+      },
+    });
+    createClient.mockReturnValue(client);
+    const err = await getCurrentAccount().catch((e) => e);
+    expect(err).toBeInstanceOf(ForbiddenError);
+    expect(err.message).toBe("Account is deactivated");
   });
 });

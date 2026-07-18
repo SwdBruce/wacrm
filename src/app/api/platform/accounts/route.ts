@@ -35,6 +35,8 @@ interface AccountRow {
   id: string;
   name: string;
   ruc: string | null;
+  is_active: boolean;
+  deactivated_at: string | null;
   owner_user_id: string | null;
   created_at: string;
 }
@@ -61,7 +63,7 @@ export async function GET() {
     const [accountsRes, profilesRes, whatsappRes] = await Promise.all([
       db
         .from("accounts")
-        .select("id, name, ruc, owner_user_id, created_at")
+        .select("id, name, ruc, is_active, deactivated_at, owner_user_id, created_at")
         .order("created_at", { ascending: false }),
       db.from("profiles").select("user_id, full_name, email, account_id"),
       db
@@ -126,6 +128,8 @@ export async function GET() {
         id: a.id,
         name: a.name,
         ruc: a.ruc ?? null,
+        is_active: a.is_active !== false,
+        deactivated_at: a.deactivated_at ?? null,
         created_at: a.created_at,
         owner: ownerProfile
           ? {

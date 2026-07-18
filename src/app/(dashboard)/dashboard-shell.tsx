@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 import { AuthProvider, useAuth } from "@/hooks/use-auth";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Header } from "@/components/layout/header";
@@ -12,8 +14,10 @@ import { PresenceHeartbeat } from "@/components/presence/presence-heartbeat";
 // client components can't export Next's metadata object.
 
 function DashboardShellInner({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, profileLoading, account, signOut } = useAuth();
   const router = useRouter();
+  const t = useTranslations("LoginPage");
+  const signingOutDeactivated = useRef(false);
 
   // Sidebar drawer state — only used on mobile. On lg+ the sidebar is
   // always visible and this stays at `false` (ignored by the component).
@@ -26,7 +30,20 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  // Soft-deactivated organisations: force sign-out so members cannot
+  // keep using a stale cookie session against blocked APIs/RLS.
+  useEffect(() => {
+    if (loading || profileLoading || !user || !account) return;
+    if (account.is_active !== false) return;
+    if (signingOutDeactivated.current) return;
+    signingOutDeactivated.current = true;
+    toast.error(t("accountDeactivated"));
+    void signOut().then(() => {
+      router.push("/login");
+    });
+  }, [loading, profileLoading, user, account, signOut, router, t]);
+
+  if (loading || (user && profileLoading)) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
@@ -38,6 +55,17 @@ function DashboardShellInner({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) return null;
+
+  if (account && account.is_active === false) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-3 px-6 text-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <p className="text-sm text-muted-foreground">{t("accountDeactivated")}</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">

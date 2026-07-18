@@ -191,6 +191,7 @@ export function ClientsList() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("colOrganisation")}</TableHead>
+                <TableHead>{t("colStatus")}</TableHead>
                 <TableHead>{t("colRuc")}</TableHead>
                 <TableHead>{t("colOwner")}</TableHead>
                 <TableHead>{t("colMembers")}</TableHead>
@@ -209,6 +210,18 @@ export function ClientsList() {
                     >
                       {a.name}
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={a.is_active !== false ? "default" : "outline"}
+                      className={
+                        a.is_active !== false ? "" : "text-muted-foreground"
+                      }
+                    >
+                      {a.is_active !== false
+                        ? t("statusActive")
+                        : t("statusInactive")}
+                    </Badge>
                   </TableCell>
                   <TableCell className="font-mono text-sm text-muted-foreground">
                     {a.ruc ?? tCommon("emDash")}

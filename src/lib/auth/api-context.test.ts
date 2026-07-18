@@ -5,10 +5,28 @@ import type { ApiKeyRow } from "@/lib/api-keys/store";
 import { ApiError } from "@/lib/api/v1/respond";
 import { __resetRateLimitForTests, RATE_LIMITS } from "@/lib/rate-limit";
 
-// Mock the service-role client factory — requireApiKey only stashes
-// the returned client in the context; tests never call through it.
+const accountById = vi.fn<
+  (id: string) => Promise<{ data: { is_active: boolean } | null; error: unknown }>
+>();
+
+// Mock the service-role client factory — requireApiKey looks up the
+// account's is_active flag, then stashes the client in the context.
 vi.mock("@/lib/flows/admin-client", () => ({
-  supabaseAdmin: () => ({ __isMockAdminClient: true }),
+  supabaseAdmin: () => ({
+    __isMockAdminClient: true,
+    from: (table: string) => {
+      if (table !== "accounts") {
+        throw new Error(`Unexpected table in api-context test: ${table}`);
+      }
+      return {
+        select: () => ({
+          eq: (_col: string, id: string) => ({
+            maybeSingle: () => accountById(id),
+          }),
+        }),
+      };
+    },
+  }),
 }));
 
 // Mock the store so we control which row a hash resolves to.
@@ -47,6 +65,8 @@ beforeEach(() => {
   __resetRateLimitForTests();
   findActiveKeyByHash.mockReset();
   touchLastUsed.mockReset();
+  accountById.mockReset();
+  accountById.mockResolvedValue({ data: { is_active: true }, error: null });
 });
 
 afterEach(() => {
@@ -84,6 +104,17 @@ describe("requireApiKey", () => {
       "unauthorized",
       401,
     );
+  });
+
+  it("403s when the organisation is soft-deactivated", async () => {
+    findActiveKeyByHash.mockResolvedValue(row());
+    accountById.mockResolvedValue({ data: { is_active: false }, error: null });
+    await expectApiError(
+      requireApiKey(reqWith(`Bearer ${KEY}`)),
+      "forbidden",
+      403,
+    );
+    expect(touchLastUsed).not.toHaveBeenCalled();
   });
 
   it("returns a context for a valid key with no scope required", async () => {

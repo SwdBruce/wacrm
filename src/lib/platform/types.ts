@@ -25,6 +25,10 @@ export interface PlatformAccountSummary {
   name: string;
   /** Optional tax ID (e.g. Peru RUC). */
   ruc: string | null;
+  /** Soft-deactivate flag — false blocks member login and tenant use. */
+  is_active: boolean;
+  /** Set when deactivated; null while active. */
+  deactivated_at: string | null;
   created_at: string;
   owner: PlatformAccountOwner | null;
   member_count: number;

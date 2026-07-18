@@ -3,7 +3,7 @@
 //
 //   GET   — full detail for one client account: owner, members,
 //           WhatsApp snapshot, and cheap record counts.
-//   PATCH — maintenance: rename the account.
+//   PATCH — maintenance: rename, RUC, or activate/deactivate.
 //
 // Platform-owner only. Cross-tenant, so it runs on the service-role
 // client after `requirePlatformOwner` verifies the caller.
@@ -31,6 +31,8 @@ interface AccountRow {
   id: string;
   name: string;
   ruc: string | null;
+  is_active: boolean;
+  deactivated_at: string | null;
   owner_user_id: string | null;
   created_at: string;
 }
@@ -74,7 +76,7 @@ export async function GET(
 
     const { data: account, error: accountErr } = await db
       .from("accounts")
-      .select("id, name, ruc, owner_user_id, created_at")
+      .select("id, name, ruc, is_active, deactivated_at, owner_user_id, created_at")
       .eq("id", id)
       .maybeSingle<AccountRow>();
 
@@ -142,6 +144,8 @@ export async function GET(
       id: account.id,
       name: account.name,
       ruc: account.ruc ?? null,
+      is_active: account.is_active !== false,
+      deactivated_at: account.deactivated_at ?? null,
       created_at: account.created_at,
       owner: owner
         ? { user_id: owner.user_id, full_name: owner.full_name, email: owner.email }
@@ -181,20 +185,26 @@ export async function PATCH(
     const { id } = await params;
 
     const body = (await request.json().catch(() => null)) as
-      | { name?: unknown; ruc?: unknown }
+      | { name?: unknown; ruc?: unknown; is_active?: unknown }
       | null;
 
     const hasName = typeof body?.name === "string";
     const hasRuc = Object.prototype.hasOwnProperty.call(body ?? {}, "ruc");
+    const hasIsActive = typeof body?.is_active === "boolean";
 
-    if (!hasName && !hasRuc) {
+    if (!hasName && !hasRuc && !hasIsActive) {
       return NextResponse.json(
-        { error: "Provide 'name' and/or 'ruc'" },
+        { error: "Provide 'name', 'ruc', and/or 'is_active'" },
         { status: 400 },
       );
     }
 
-    const patch: { name?: string; ruc?: string | null } = {};
+    const patch: {
+      name?: string;
+      ruc?: string | null;
+      is_active?: boolean;
+      deactivated_at?: string | null;
+    } = {};
 
     if (hasName) {
       const rawName = (body!.name as string).trim();
@@ -233,12 +243,24 @@ export async function PATCH(
       }
     }
 
+    if (hasIsActive) {
+      const nextActive = body!.is_active as boolean;
+      patch.is_active = nextActive;
+      patch.deactivated_at = nextActive ? null : new Date().toISOString();
+    }
+
     const { data, error } = await db
       .from("accounts")
       .update(patch)
       .eq("id", id)
-      .select("id, name, ruc")
-      .maybeSingle<{ id: string; name: string; ruc: string | null }>();
+      .select("id, name, ruc, is_active, deactivated_at")
+      .maybeSingle<{
+        id: string;
+        name: string;
+        ruc: string | null;
+        is_active: boolean;
+        deactivated_at: string | null;
+      }>();
 
     if (error) {
       if (error.code === "23505") {

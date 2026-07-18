@@ -13,10 +13,19 @@ import {
   X,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -114,6 +123,9 @@ export function ClientDetail({ accountId }: { accountId: string }) {
   const [savingRuc, setSavingRuc] = useState(false);
   const [rucSaveError, setRucSaveError] = useState<string | null>(null);
 
+  const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
+  const [togglingStatus, setTogglingStatus] = useState(false);
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -204,6 +216,49 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       setSavingRuc(false);
     }
   }
+
+  async function setAccountActive(nextActive: boolean) {
+    setTogglingStatus(true);
+    try {
+      const res = await fetch(`/api/platform/accounts/${accountId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: nextActive }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(
+          data?.error ??
+            (nextActive ? t("reactivateError") : t("deactivateError")),
+        );
+      }
+      setAccount((prev) =>
+        prev
+          ? {
+              ...prev,
+              is_active: nextActive,
+              deactivated_at: data.account?.deactivated_at ?? null,
+            }
+          : prev,
+      );
+      setStatusConfirmOpen(false);
+      toast.success(
+        nextActive ? t("reactivatedToast") : t("deactivatedToast"),
+      );
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : nextActive
+            ? t("reactivateError")
+            : t("deactivateError"),
+      );
+    } finally {
+      setTogglingStatus(false);
+    }
+  }
+
+  const isActive = account?.is_active !== false;
 
   return (
     <div>
@@ -346,6 +401,21 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                 </Button>
               </div>
             )}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge
+                variant={isActive ? "default" : "outline"}
+                className={isActive ? "" : "text-muted-foreground"}
+              >
+                {isActive ? t("statusActive") : t("statusInactive")}
+              </Badge>
+              <Button
+                variant={isActive ? "outline" : "default"}
+                size="sm"
+                onClick={() => setStatusConfirmOpen(true)}
+              >
+                {isActive ? t("deactivateBtn") : t("reactivateBtn")}
+              </Button>
+            </div>
           </div>
 
           {/* WhatsApp snapshot */}
@@ -436,6 +506,40 @@ export function ClientDetail({ accountId }: { accountId: string }) {
           </div>
         </div>
       ) : null}
+
+      <Dialog open={statusConfirmOpen} onOpenChange={setStatusConfirmOpen}>
+        <DialogContent className="border-border bg-popover sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isActive ? t("deactivateTitle") : t("reactivateTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {isActive
+                ? t("deactivateDesc", { name: account?.name ?? "" })
+                : t("reactivateDesc", { name: account?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setStatusConfirmOpen(false)}
+              disabled={togglingStatus}
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button
+              variant={isActive ? "destructive" : "default"}
+              onClick={() => void setAccountActive(!isActive)}
+              disabled={togglingStatus || !account}
+            >
+              {togglingStatus ? (
+                <span className="inline-block size-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : null}
+              {isActive ? t("confirmDeactivate") : t("confirmReactivate")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

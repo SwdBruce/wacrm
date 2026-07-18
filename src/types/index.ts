@@ -66,6 +66,9 @@ export interface Account {
    * organisation is waiting for its bootstrap owner invitation.
    */
   owner_user_id: string | null;
+  /** Soft-deactivate flag — false blocks member CRM/API access. */
+  is_active: boolean;
+  deactivated_at: string | null;
   created_at: string;
   updated_at: string;
 }

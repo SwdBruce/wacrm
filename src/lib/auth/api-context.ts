@@ -94,6 +94,22 @@ export async function requireApiKey(
     throw unauthorized();
   }
 
+  // Soft-deactivated organisations must not use the public API even
+  // with a still-valid key hash.
+  const admin = supabaseAdmin();
+  const { data: account, error: accountErr } = await admin
+    .from('accounts')
+    .select('is_active')
+    .eq('id', row.account_id)
+    .maybeSingle<{ is_active: boolean }>();
+  if (accountErr) {
+    console.error('[requireApiKey] account lookup error:', accountErr);
+    throw unauthorized();
+  }
+  if (!account || account.is_active === false) {
+    throw forbidden('Account is deactivated');
+  }
+
   // Rate-limit per key, before the scope check, so an unauthorized-
   // scope caller still can't hammer the endpoint for free.
   const limit = checkRateLimit(`apikey:${row.id}`, RATE_LIMITS.publicApi);
@@ -109,7 +125,7 @@ export async function requireApiKey(
 
   return {
     authType: 'api_key',
-    supabase: supabaseAdmin(),
+    supabase: admin,
     accountId: row.account_id,
     keyId: row.id,
     scopes: row.scopes,
