@@ -19,12 +19,26 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { MessagePackage } from "@/lib/platform/message-packages";
+import {
+  MESSAGE_PACKAGE_CATEGORIES,
+  type MessagePackage,
+  type MessagePackageCategory,
+} from "@/lib/platform/message-packages";
 import type { PlatformAccountSummary } from "@/lib/platform/types";
+
+function formatPackageCategories(
+  categories: MessagePackageCategory[],
+): string {
+  return MESSAGE_PACKAGE_CATEGORIES.filter((category) =>
+    categories.includes(category),
+  ).join(" · ");
+}
 
 interface AssignPackageDialogProps {
   open: boolean;
@@ -60,8 +74,21 @@ export function AssignPackageDialog({
 
   const selectedPackage = packages.find((p) => p.id === packageId) ?? null;
 
+  function packageCategoriesLabel(pkg: MessagePackage): string {
+    return formatPackageCategories(pkg.categories) || t("uncategorized");
+  }
+
   function packageLabel(pkg: MessagePackage): string {
     return t("packageOption", {
+      categories: packageCategoriesLabel(pkg),
+      quantity: pkg.quantity.toLocaleString(),
+      price: pkg.unit_price.toFixed(2),
+      days: pkg.duration_days,
+    });
+  }
+
+  function packageOptionShort(pkg: MessagePackage): string {
+    return t("packageOptionShort", {
       quantity: pkg.quantity.toLocaleString(),
       price: pkg.unit_price.toFixed(2),
       days: pkg.duration_days,
@@ -78,6 +105,19 @@ export function AssignPackageDialog({
     value: pkg.id,
     label: packageLabel(pkg),
   }));
+
+  const packagesByCategory = (() => {
+    const groups = new Map<string, MessagePackage[]>();
+    for (const pkg of packages) {
+      const key = packageCategoriesLabel(pkg);
+      const list = groups.get(key) ?? [];
+      list.push(pkg);
+      groups.set(key, list);
+    }
+    return Array.from(groups.entries()).sort(([a], [b]) =>
+      a.localeCompare(b),
+    );
+  })();
 
   useEffect(() => {
     if (accountsProp) setAccounts(accountsProp);
@@ -244,10 +284,15 @@ export function AssignPackageDialog({
                   <SelectValue placeholder={t("packagePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {packageItems.map((item) => (
-                    <SelectItem key={item.value} value={item.value}>
-                      {item.label}
-                    </SelectItem>
+                  {packagesByCategory.map(([categoryLabel, groupPackages]) => (
+                    <SelectGroup key={categoryLabel}>
+                      <SelectLabel>{categoryLabel}</SelectLabel>
+                      {groupPackages.map((pkg) => (
+                        <SelectItem key={pkg.id} value={pkg.id}>
+                          {packageOptionShort(pkg)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
