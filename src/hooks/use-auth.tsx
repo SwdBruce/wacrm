@@ -47,6 +47,8 @@ interface Profile {
 interface AccountSummary {
   id: string;
   name: string;
+  /** Optional tax ID (e.g. Peru RUC). */
+  ruc: string | null;
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
    *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
   default_currency: string;
@@ -89,7 +91,7 @@ interface AuthContextValue {
   accountId: string | null;
   /** Role within that account. Null while loading. */
   accountRole: AccountRole | null;
-  /** Lightweight account meta — id + name + default_currency. Null while loading. */
+  /** Lightweight account meta — id + name + ruc + default_currency. Null while loading. */
   account: AccountSummary | null;
   /** Account default deal currency. Falls back to DEFAULT_CURRENCY
    *  while loading or when no account is resolved, so callers can use
@@ -180,7 +182,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from("accounts")
             // default_currency added in migration 021; narrowed to the
             // USD fallback below for older schemas where it reads null.
-            .select("id, name, default_currency")
+            .select("id, name, ruc, default_currency")
             .eq("id", data.account_id)
             .maybeSingle();
           if (accountErr) {
@@ -194,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             accountRow = {
               id: account.id,
               name: account.name,
+              ruc: account.ruc ?? null,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
             };
           }

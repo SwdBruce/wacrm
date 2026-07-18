@@ -108,6 +108,12 @@ export function ClientDetail({ accountId }: { accountId: string }) {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // RUC edit state.
+  const [editingRuc, setEditingRuc] = useState(false);
+  const [ruc, setRuc] = useState("");
+  const [savingRuc, setSavingRuc] = useState(false);
+  const [rucSaveError, setRucSaveError] = useState<string | null>(null);
+
   async function load() {
     setLoading(true);
     setError(null);
@@ -119,6 +125,7 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       }
       setAccount(data.account);
       setName(data.account?.name ?? "");
+      setRuc(data.account?.ruc ?? "");
     } catch (err) {
       setError(err instanceof Error ? err.message : t("loadError"));
     } finally {
@@ -156,6 +163,45 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       setSaveError(err instanceof Error ? err.message : t("renameError"));
     } finally {
       setSaving(false);
+    }
+  }
+
+  function cancelRucEdit() {
+    setEditingRuc(false);
+    setRuc(account?.ruc ?? "");
+    setRucSaveError(null);
+  }
+
+  async function saveRuc() {
+    const trimmed = ruc.trim();
+    if (trimmed.length > 32) {
+      setRucSaveError(t("rucTooLong"));
+      return;
+    }
+    const nextRuc = trimmed.length > 0 ? trimmed : null;
+    if (nextRuc === (account?.ruc ?? null)) {
+      cancelRucEdit();
+      return;
+    }
+    setSavingRuc(true);
+    setRucSaveError(null);
+    try {
+      const res = await fetch(`/api/platform/accounts/${accountId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ruc: nextRuc }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error ?? t("rucSaveError"));
+      }
+      setAccount((prev) => (prev ? { ...prev, ruc: nextRuc } : prev));
+      setRuc(nextRuc ?? "");
+      setEditingRuc(false);
+    } catch (err) {
+      setRucSaveError(err instanceof Error ? err.message : t("rucSaveError"));
+    } finally {
+      setSavingRuc(false);
     }
   }
 
@@ -244,11 +290,62 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                   })
                 : t("ownerPending")}
             </p>
-            {account.ruc ? (
-              <p className="mt-0.5 font-mono text-sm text-muted-foreground">
-                {t("rucLine", { ruc: account.ruc })}
-              </p>
-            ) : null}
+            {editingRuc ? (
+              <div className="mt-1.5 space-y-1">
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={ruc}
+                    onChange={(e) => setRuc(e.target.value)}
+                    maxLength={32}
+                    autoFocus
+                    placeholder={t("rucPlaceholder")}
+                    className="max-w-xs font-mono text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void saveRuc();
+                      if (e.key === "Escape") cancelRucEdit();
+                    }}
+                  />
+                  <Button
+                    size="icon-sm"
+                    onClick={() => void saveRuc()}
+                    disabled={savingRuc}
+                  >
+                    <Check />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={cancelRucEdit}
+                    disabled={savingRuc}
+                  >
+                    <X />
+                  </Button>
+                </div>
+                {rucSaveError ? (
+                  <p className="text-sm text-destructive">{rucSaveError}</p>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-0.5 flex items-center gap-1.5">
+                <p className="font-mono text-sm text-muted-foreground">
+                  {account.ruc
+                    ? t("rucLine", { ruc: account.ruc })
+                    : t("rucEmpty")}
+                </p>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    setRuc(account.ruc ?? "");
+                    setRucSaveError(null);
+                    setEditingRuc(true);
+                  }}
+                  aria-label={t("editRucAria")}
+                >
+                  <Pencil />
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* WhatsApp snapshot */}

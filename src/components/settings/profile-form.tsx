@@ -317,6 +317,12 @@ export function ProfileForm() {
                 </dd>
               </div>
               <div>
+                <dt className="text-muted-foreground">{t('ruc')}</dt>
+                <dd className="mt-0.5 font-mono text-foreground">
+                  {account?.ruc ?? '—'}
+                </dd>
+              </div>
+              <div>
                 <dt className="text-muted-foreground">
                   {t('organisationRole')}
                 </dt>
