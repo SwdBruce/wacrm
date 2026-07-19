@@ -89,7 +89,11 @@ function LoginPageInner() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
+          <form
+            onSubmit={handleLogin}
+            autoComplete="off"
+            className="flex flex-col gap-4"
+          >
             {error && (
               <div className="rounded-lg border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                 {error}
@@ -103,9 +107,11 @@ function LoginPageInner() {
               <Input
                 id="email"
                 type="email"
+                name="email"
                 placeholder={t('emailPlaceholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="off"
                 required
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
@@ -126,9 +132,11 @@ function LoginPageInner() {
               <Input
                 id="password"
                 type="password"
+                name="password"
                 placeholder={t('passwordPlaceholder')}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 required
                 className="border-border bg-muted text-foreground placeholder:text-muted-foreground focus-visible:border-primary focus-visible:ring-primary/20"
               />
@@ -143,7 +151,7 @@ function LoginPageInner() {
             </Button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
+          {/* <p className="mt-6 text-center text-sm text-muted-foreground">
             {t('noAccount')}{" "}
             <Link
               href={
@@ -155,7 +163,7 @@ function LoginPageInner() {
             >
               {t('createAccount')}
             </Link>
-          </p>
+          </p> */}
         </CardContent>
       </Card>
     </div>
