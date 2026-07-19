@@ -36,6 +36,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClientPurchases } from "@/components/platform/client-purchases";
+import { LegacyFratalkHistory } from "@/components/legacy/legacy-fratalk-history";
 import type {
   PlatformAccountDetail,
   PlatformAccountMember,
@@ -475,6 +476,20 @@ export function ClientDetail({ accountId }: { accountId: string }) {
             accountId={accountId}
             accountName={account.name}
           />
+
+          <div>
+            <h2 className="mb-2 text-sm font-semibold text-foreground">
+              {t("legacyTitle")}
+            </h2>
+            <p className="mb-3 text-sm text-muted-foreground">
+              {t("legacyDescription")}
+            </p>
+            <LegacyFratalkHistory
+              apiBase={`/api/platform/accounts/${accountId}/legacy-fratalk`}
+              showBalance
+              compact
+            />
+          </div>
 
           {/* Members */}
           <div>

@@ -14,6 +14,7 @@ import { AppearancePanel } from "@/components/settings/appearance-panel";
 import { WhatsAppConfig } from "@/components/settings/whatsapp-config";
 import { TemplateManager } from "@/components/settings/template-manager";
 import { MessageCreditsPanel } from "@/components/settings/message-credits-panel";
+import { LegacyFratalkPanel } from "@/components/settings/legacy-fratalk-panel";
 import { QuickRepliesManager } from "@/components/settings/quick-replies-manager";
 import { FieldsAndTagsPanel } from "@/components/settings/fields-and-tags-panel";
 import { DealsSettings } from "@/components/settings/deals-settings";
@@ -65,6 +66,11 @@ export default function SettingsPage() {
     credits: (
       <RequireRole min="admin">
         <MessageCreditsPanel />
+      </RequireRole>
+    ),
+    "legacy-fratalk": (
+      <RequireRole min="admin">
+        <LegacyFratalkPanel />
       </RequireRole>
     ),
     "quick-replies": <QuickRepliesManager />,

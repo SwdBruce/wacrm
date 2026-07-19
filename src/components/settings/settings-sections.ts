@@ -1,4 +1,5 @@
 import {
+  Archive,
   Coins,
   FileText,
   KeyRound,
@@ -30,6 +31,7 @@ export const SETTINGS_SECTIONS = [
   'whatsapp',
   'templates',
   'credits',
+  'legacy-fratalk',
   'quick-replies',
   'fields',
   'deals',
@@ -62,6 +64,13 @@ export const SECTION_META: Record<SettingsSection, SectionMeta> = {
     id: 'credits',
     label: 'Message credits',
     icon: Package,
+    group: 'workspace',
+    adminOnly: true,
+  },
+  'legacy-fratalk': {
+    id: 'legacy-fratalk',
+    label: 'Fratalk history',
+    icon: Archive,
     group: 'workspace',
     adminOnly: true,
   },
