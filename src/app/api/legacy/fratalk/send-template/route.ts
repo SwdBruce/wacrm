@@ -115,6 +115,15 @@ export async function POST(request: Request) {
           ? { body: contentParams }
           : undefined;
 
+    // Inbox display: same as the UI path (rendered body_text).
+    const contentText = templateRow.body_text.replace(
+      /\{\{(\d+)\}\}/g,
+      (_, raw: string) => {
+        const idx = Number(raw) - 1;
+        return contentParams[idx] ?? `{{${raw}}}`;
+      },
+    );
+
     const resolved = await resolveConversationByPhone(
       ctx.supabase,
       ctx.accountId,
@@ -128,6 +137,7 @@ export async function POST(request: Request) {
       {
         conversationId: resolved.conversationId,
         messageType: 'template',
+        contentText,
         templateName,
         templateLanguage: language,
         templateParams: contentParams,

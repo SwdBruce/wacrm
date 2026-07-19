@@ -93,6 +93,28 @@ export interface SendMessageParams {
   replyToMessageId?: string | null;
 }
 
+/** Fill `{{1}}`, `{{2}}`, … in a template body for inbox display. */
+function renderTemplateBody(body: string, params: string[]): string {
+  return body.replace(/\{\{(\d+)\}\}/g, (_, raw: string) => {
+    const idx = Number(raw) - 1;
+    return params[idx] ?? `{{${raw}}}`;
+  });
+}
+
+function bodyParamsFromTemplateSend(
+  templateMessageParams: unknown,
+  templateParams?: string[],
+): string[] {
+  if (
+    templateMessageParams &&
+    typeof templateMessageParams === 'object' &&
+    Array.isArray((templateMessageParams as { body?: unknown }).body)
+  ) {
+    return (templateMessageParams as { body: string[] }).body.map(String);
+  }
+  return templateParams ?? [];
+}
+
 export interface SendMessageResult {
   /** Our `messages.id` (the persisted row). */
   messageId: string;
@@ -494,8 +516,25 @@ export async function sendMessageToConversation(
   // Interactive messages persist the body as content_text (so the
   // conversation-list preview reads sensibly) plus the full structured
   // payload so the thread can re-render the buttons / rows.
+  // Templates: inbox passes a pre-rendered body; API callers
+  // (fratalk /send-template) often omit it — derive from the row.
   const interactiveBody =
     messageType === 'interactive' ? interactivePayload!.body : null;
+
+  let templateDisplayText: string | null = null;
+  if (messageType === 'template') {
+    if (contentText) {
+      templateDisplayText = contentText;
+    } else if (templateRow?.body_text) {
+      templateDisplayText = renderTemplateBody(
+        templateRow.body_text,
+        bodyParamsFromTemplateSend(templateMessageParams, templateParams),
+      );
+    }
+  }
+
+  const persistedContentText =
+    interactiveBody ?? templateDisplayText ?? contentText ?? null;
 
   const { data: messageRecord, error: msgError } = await db
     .from('messages')
@@ -503,7 +542,7 @@ export async function sendMessageToConversation(
       conversation_id: conversationId,
       sender_type: 'agent',
       content_type: messageType,
-      content_text: interactiveBody ?? contentText ?? null,
+      content_text: persistedContentText,
       media_url: mediaUrl || null,
       template_name: templateName || null,
       interactive_payload:
@@ -527,7 +566,7 @@ export async function sendMessageToConversation(
   const lastMessageText =
     messageType === 'interactive'
       ? interactivePayloadPreviewText(interactivePayload!)
-      : contentText || `[${messageType}]`;
+      : persistedContentText || `[${messageType}]`;
 
   await db
     .from('conversations')
