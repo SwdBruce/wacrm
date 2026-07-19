@@ -65,6 +65,27 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   /**
+   * Fratalk legacy paths — keep client URLs stable while the handlers
+   * live under /api/legacy/fratalk/*.
+   */
+  async rewrites() {
+    return [
+      {
+        source: "/get-templates",
+        destination: "/api/legacy/fratalk/get-templates",
+      },
+      {
+        source: "/send-template",
+        destination: "/api/legacy/fratalk/send-template",
+      },
+      {
+        source: "/generarToken",
+        destination: "/api/legacy/fratalk/generarToken",
+      },
+    ];
+  },
+
+  /**
    * Cache-Control policy.
    *
    * Why this exists:
@@ -105,6 +126,18 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/api/:path*",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        source: "/get-templates",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        source: "/send-template",
+        headers: [{ key: "Cache-Control", value: "no-store" }],
+      },
+      {
+        source: "/generarToken",
         headers: [{ key: "Cache-Control", value: "no-store" }],
       },
       {

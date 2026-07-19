@@ -71,6 +71,11 @@ export async function middleware(request: NextRequest) {
 
   // Protected pages - redirect to login if not authenticated
   const protectedPaths = ['/dashboard', '/inbox', '/contacts', '/pipelines', '/broadcasts', '/automations', '/settings']
+  // Fratalk legacy public API — JWT auth inside the route, not cookies.
+  const fratalkLegacyPaths = ['/get-templates', '/send-template', '/generarToken']
+  if (fratalkLegacyPaths.includes(request.nextUrl.pathname)) {
+    return supabaseResponse
+  }
   if (!user && protectedPaths.some(path => request.nextUrl.pathname.startsWith(path))) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'

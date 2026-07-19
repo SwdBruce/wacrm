@@ -319,13 +319,31 @@ export async function sendMessageToConversation(
   // guards against a malformed local row crashing the send-builder.
   let templateRow: MessageTemplate | null = null;
   if (messageType === 'template' && templateName) {
-    const { data } = await db
+    const lang = templateLanguage || 'en_US';
+    let { data } = await db
       .from('message_templates')
       .select('*')
       .eq('account_id', accountId)
       .eq('name', templateName)
-      .eq('language', templateLanguage || 'en_US')
+      .eq('language', lang)
       .maybeSingle();
+    // Fallback: legacy callers (fratalk) often know the name only.
+    // Prefer an APPROVED row when multiple languages exist.
+    if (!data) {
+      const { data: byName } = await db
+        .from('message_templates')
+        .select('*')
+        .eq('account_id', accountId)
+        .eq('name', templateName);
+      if (byName?.length) {
+        data =
+          byName.find(
+            (r) =>
+              typeof r.status === 'string' &&
+              r.status.toUpperCase() === 'APPROVED',
+          ) ?? byName[0];
+      }
+    }
     if (data && !isMessageTemplate(data)) {
       throw new SendMessageError(
         'template_malformed',
@@ -363,7 +381,7 @@ export async function sendMessageToConversation(
         accessToken,
         to: phone,
         templateName: templateName!,
-        language: templateLanguage || 'en_US',
+        language: templateRow?.language || templateLanguage || 'en_US',
         template: templateRow ?? undefined,
         messageParams: templateMessageParams ?? undefined,
         params: templateParams || [],
