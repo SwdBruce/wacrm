@@ -4,11 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   Building2,
+  ChevronDown,
   ChevronRight,
+  Link2,
   Package,
   Plus,
   RefreshCw,
   Search,
+  UserPlus,
   Users as UsersIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -16,6 +19,12 @@ import { useTranslations } from "next-intl";
 import { AssignPackageDialog } from "@/components/platform/assign-package-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Table,
@@ -26,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PlatformAccountSummary } from "@/lib/platform/types";
+import { NewClientDirectDialog } from "./new-client-direct-dialog";
 import { NewClientDialog } from "./new-client-dialog";
 
 function WhatsAppBadge({
@@ -74,7 +84,8 @@ export function ClientsList() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
-  const [createOpen, setCreateOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [directOpen, setDirectOpen] = useState(false);
   const [assignOpen, setAssignOpen] = useState(false);
   const [assignTarget, setAssignTarget] =
     useState<PlatformAccountSummary | null>(null);
@@ -153,10 +164,26 @@ export function ClientsList() {
             <Package />
             {t("assignPackage")}
           </Button>
-          <Button size="sm" onClick={() => setCreateOpen(true)}>
-            <Plus />
-            {t("newClient")}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={<Button size="sm" />}
+              aria-label={t("newClient")}
+            >
+              <Plus />
+              {t("newClient")}
+              <ChevronDown className="size-4 opacity-70" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-52">
+              <DropdownMenuItem onClick={() => setInviteOpen(true)}>
+                <Link2 />
+                {t("newClientInvite")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setDirectOpen(true)}>
+                <UserPlus />
+                {t("newClientDirect")}
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
@@ -287,8 +314,14 @@ export function ClientsList() {
       </div>
 
       <NewClientDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onCreated={() => void load()}
+      />
+
+      <NewClientDirectDialog
+        open={directOpen}
+        onOpenChange={setDirectOpen}
         onCreated={() => void load()}
       />
 

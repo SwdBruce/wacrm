@@ -164,6 +164,179 @@ export async function GET() {
 // is returned exactly once and only its SHA-256 hash reaches the DB.
 // ============================================================
 
+function parseOrgFields(body: {
+  name?: unknown;
+  ruc?: unknown;
+} | null): { name: string; ruc: string | null } | NextResponse {
+  const name = typeof body?.name === "string" ? body.name.trim() : "";
+  const rucRaw = typeof body?.ruc === "string" ? body.ruc.trim() : "";
+  const ruc = rucRaw.length > 0 ? rucRaw : null;
+
+  if (!name) {
+    return NextResponse.json({ error: "'name' is required" }, { status: 400 });
+  }
+  if (name.length > 100) {
+    return NextResponse.json(
+      { error: "'name' must be 100 characters or fewer" },
+      { status: 400 },
+    );
+  }
+  if (ruc && ruc.length > 32) {
+    return NextResponse.json(
+      { error: "'ruc' must be 32 characters or fewer" },
+      { status: 400 },
+    );
+  }
+
+  return { name, ruc };
+}
+
+async function createClientByInvitation(
+  ctx: Awaited<ReturnType<typeof requirePlatformOwner>>,
+  request: Request,
+  name: string,
+  ruc: string | null,
+  expiresInDaysRaw: unknown,
+) {
+  const expiresInDays = clampExpiryDays(
+    typeof expiresInDaysRaw === "number" ? expiresInDaysRaw : undefined,
+  );
+  const expiresAt = inviteExpiresAt(expiresInDays);
+  const { token, hash } = generateInviteToken();
+
+  const { data, error } = await ctx.supabase.rpc(
+    "create_platform_account_invitation",
+    {
+      p_name: name,
+      p_token_hash: hash,
+      p_expires_at: expiresAt.toISOString(),
+      p_ruc: ruc,
+    },
+  );
+
+  if (error || !data) {
+    if (error?.code === "22023") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error?.code === "23505") {
+      return NextResponse.json(
+        {
+          error:
+            error.message || "An organisation with this RUC already exists",
+        },
+        { status: 409 },
+      );
+    }
+    if (error?.code === "42501") {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    console.error("[POST /api/platform/accounts] RPC error:", error);
+    return NextResponse.json(
+      { error: "Failed to create organisation" },
+      { status: 500 },
+    );
+  }
+
+  const result = data as {
+    account_id: string;
+    invitation_id: string;
+  };
+
+  return NextResponse.json(
+    {
+      account: { id: result.account_id, name, ruc },
+      invitation: {
+        id: result.invitation_id,
+        role: "owner",
+        expires_at: expiresAt.toISOString(),
+      },
+      url: inviteUrl(token, resolveInviteBaseUrl(request)),
+      expiresInDays,
+    },
+    { status: 201 },
+  );
+}
+
+async function createClientDirect(
+  ctx: Awaited<ReturnType<typeof requirePlatformOwner>>,
+  name: string,
+  ruc: string | null,
+  owner: { fullName: string; email: string; password: string },
+) {
+  const { data: createdUser, error: createUserError } =
+    await ctx.admin.auth.admin.createUser({
+      email: owner.email,
+      password: owner.password,
+      email_confirm: true,
+      user_metadata: { full_name: owner.fullName },
+    });
+
+  if (createUserError || !createdUser.user) {
+    const message = createUserError?.message ?? "Failed to create owner account";
+    const status =
+      createUserError?.message?.toLowerCase().includes("already") ||
+      createUserError?.status === 422
+        ? 409
+        : 400;
+    return NextResponse.json({ error: message }, { status });
+  }
+
+  const ownerUserId = createdUser.user.id;
+
+  const { data, error } = await ctx.supabase.rpc(
+    "create_platform_account_with_owner",
+    {
+      p_name: name,
+      p_owner_user_id: ownerUserId,
+      p_ruc: ruc,
+    },
+  );
+
+  if (error || !data) {
+    await ctx.admin.auth.admin.deleteUser(ownerUserId).catch((deleteErr) => {
+      console.error(
+        "[POST /api/platform/accounts] rollback deleteUser error:",
+        deleteErr,
+      );
+    });
+
+    if (error?.code === "22023") {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error?.code === "23505") {
+      return NextResponse.json(
+        {
+          error:
+            error.message || "An organisation with this RUC already exists",
+        },
+        { status: 409 },
+      );
+    }
+    if (error?.code === "42501") {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    console.error("[POST /api/platform/accounts] direct RPC error:", error);
+    return NextResponse.json(
+      { error: "Failed to create organisation" },
+      { status: 500 },
+    );
+  }
+
+  const result = data as { account_id: string };
+
+  return NextResponse.json(
+    {
+      account: { id: result.account_id, name, ruc },
+      owner: {
+        user_id: ownerUserId,
+        full_name: owner.fullName,
+        email: owner.email,
+      },
+    },
+    { status: 201 },
+  );
+}
+
 export async function POST(request: Request) {
   try {
     const ctx = await requirePlatformOwner();
@@ -175,90 +348,63 @@ export async function POST(request: Request) {
     if (!limit.success) return rateLimitResponse(limit);
 
     const body = (await request.json().catch(() => null)) as
-      | { name?: unknown; expiresInDays?: unknown; ruc?: unknown }
+      | {
+          mode?: unknown;
+          name?: unknown;
+          expiresInDays?: unknown;
+          ruc?: unknown;
+          owner?: {
+            fullName?: unknown;
+            email?: unknown;
+            password?: unknown;
+          };
+        }
       | null;
-    const name = typeof body?.name === "string" ? body.name.trim() : "";
-    const rucRaw = typeof body?.ruc === "string" ? body.ruc.trim() : "";
-    const ruc = rucRaw.length > 0 ? rucRaw : null;
 
-    if (!name) {
-      return NextResponse.json(
-        { error: "'name' is required" },
-        { status: 400 },
-      );
-    }
-    if (name.length > 100) {
-      return NextResponse.json(
-        { error: "'name' must be 100 characters or fewer" },
-        { status: 400 },
-      );
-    }
-    if (ruc && ruc.length > 32) {
-      return NextResponse.json(
-        { error: "'ruc' must be 32 characters or fewer" },
-        { status: 400 },
-      );
-    }
+    const parsed = parseOrgFields(body);
+    if (parsed instanceof NextResponse) return parsed;
+    const { name, ruc } = parsed;
 
-    const requestedDays =
-      typeof body?.expiresInDays === "number"
-        ? body.expiresInDays
-        : undefined;
-    const expiresInDays = clampExpiryDays(requestedDays);
-    const expiresAt = inviteExpiresAt(expiresInDays);
-    const { token, hash } = generateInviteToken();
+    const mode = body?.mode === "direct" ? "direct" : "invitation";
 
-    // Use the session-scoped client, not service_role: the SECURITY
-    // DEFINER RPC verifies auth.uid() is a platform owner and then
-    // performs the cross-RLS inserts in one DB transaction.
-    const { data, error } = await ctx.supabase.rpc(
-      "create_platform_account_invitation",
-      {
-        p_name: name,
-        p_token_hash: hash,
-        p_expires_at: expiresAt.toISOString(),
-        p_ruc: ruc,
-      },
-    );
+    if (mode === "direct") {
+      const fullName =
+        typeof body?.owner?.fullName === "string"
+          ? body.owner.fullName.trim()
+          : "";
+      const email =
+        typeof body?.owner?.email === "string" ? body.owner.email.trim() : "";
+      const password =
+        typeof body?.owner?.password === "string" ? body.owner.password : "";
 
-    if (error || !data) {
-      if (error?.code === "22023") {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
-      if (error?.code === "23505") {
+      if (!fullName) {
         return NextResponse.json(
-          { error: error.message || "An organisation with this RUC already exists" },
-          { status: 409 },
+          { error: "Owner full name is required" },
+          { status: 400 },
         );
       }
-      if (error?.code === "42501") {
-        return NextResponse.json({ error: error.message }, { status: 403 });
+      if (!email) {
+        return NextResponse.json(
+          { error: "Owner email is required" },
+          { status: 400 },
+        );
       }
-      console.error("[POST /api/platform/accounts] RPC error:", error);
-      return NextResponse.json(
-        { error: "Failed to create organisation" },
-        { status: 500 },
-      );
+      if (password.length < 6) {
+        return NextResponse.json(
+          { error: "Owner password must be at least 6 characters" },
+          { status: 400 },
+        );
+      }
+
+      return createClientDirect(ctx, name, ruc, { fullName, email, password });
     }
 
-    const result = data as {
-      account_id: string;
-      invitation_id: string;
-    };
-
-    return NextResponse.json(
-      {
-        account: { id: result.account_id, name, ruc },
-        invitation: {
-          id: result.invitation_id,
-          role: "owner",
-          expires_at: expiresAt.toISOString(),
-        },
-        // Plaintext — shown once, never persisted.
-        url: inviteUrl(token, resolveInviteBaseUrl(request)),
-        expiresInDays,
-      },
-      { status: 201 },
+    return createClientByInvitation(
+      ctx,
+      request,
+      name,
+      ruc,
+      body?.expiresInDays,
     );
   } catch (err) {
     return toErrorResponse(err);
