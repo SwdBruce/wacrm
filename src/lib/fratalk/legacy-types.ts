@@ -28,16 +28,34 @@ export interface LegacyRespuestaRow {
   message_id: string | null;
 }
 
+/**
+ * One row per Fratalk `compra` (credit pool). Categories from
+ * `paquete_detalle` are aggregated — multi-category packs share one saldo.
+ */
 export interface LegacyBalanceRow {
   id: number;
   inicio_vigencia: string;
+  fin_vigencia: string;
   usuario_id: number;
   razon_social: string;
-  category: string;
+  /** Meta template categories this pack covers (shared credit pool). */
+  categories: string[];
+  /** Catalog size from Fratalk `paquete.cantidad`. */
+  quantity: number;
+  unit_price: number;
+  duration_days: number;
   ultimo_envio: string | null;
   saldo: number;
   usado: number;
   consumido_hoy: number;
   media_envios_dia: number;
   porcentaje_consumo: number;
+  /**
+   * Same rule as Fratalk `validarSaldo`: today is within
+   * [inicio_vigencia, FIN_VIGENCIA] and remaining saldo > 0.
+   */
+  is_active: boolean;
+  /** True when this account already has a CRM purchase with this legacy_compra_id. */
+  already_migrated: boolean;
+  migrated_purchase_id: string | null;
 }

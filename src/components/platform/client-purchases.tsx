@@ -31,9 +31,15 @@ import type { AccountMessagePurchase } from "@/lib/platform/message-packages";
 export function ClientPurchases({
   accountId,
   accountName,
+  refreshKey = 0,
+  onChanged,
 }: {
   accountId: string;
   accountName?: string;
+  /** Bump to reload purchases (e.g. after Fratalk migration). */
+  refreshKey?: number;
+  /** Fired after assign / edit remaining / delete so sibling UIs can refresh. */
+  onChanged?: () => void;
 }) {
   const t = useTranslations("Platform.purchases");
   const tCommon = useTranslations("Platform.common");
@@ -74,7 +80,7 @@ export function ClientPurchases({
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [accountId]);
+  }, [accountId, refreshKey]);
 
   function openEdit(purchase: AccountMessagePurchase) {
     setEditTarget(purchase);
@@ -108,6 +114,7 @@ export function ClientPurchases({
       toast.success(t("updatedToast"));
       setEditTarget(null);
       await load();
+      onChanged?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("updateFailed"));
     } finally {
@@ -128,6 +135,7 @@ export function ClientPurchases({
       toast.success(t("deletedToast"));
       setDeleteTarget(null);
       await load();
+      onChanged?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : t("deleteFailed"));
     } finally {
@@ -228,7 +236,10 @@ export function ClientPurchases({
         onOpenChange={setAssignOpen}
         accountId={accountId}
         accountName={accountName}
-        onAssigned={() => void load()}
+        onAssigned={() => {
+          void load();
+          onChanged?.();
+        }}
       />
 
       <Dialog

@@ -126,6 +126,8 @@ export function ClientDetail({ accountId }: { accountId: string }) {
 
   const [statusConfirmOpen, setStatusConfirmOpen] = useState(false);
   const [togglingStatus, setTogglingStatus] = useState(false);
+  const [purchasesRefreshKey, setPurchasesRefreshKey] = useState(0);
+  const [balanceRefreshKey, setBalanceRefreshKey] = useState(0);
 
   async function load() {
     setLoading(true);
@@ -478,6 +480,8 @@ export function ClientDetail({ accountId }: { accountId: string }) {
           <ClientPurchases
             accountId={accountId}
             accountName={account.name}
+            refreshKey={purchasesRefreshKey}
+            onChanged={() => setBalanceRefreshKey((k) => k + 1)}
           />
 
           <div>
@@ -490,7 +494,10 @@ export function ClientDetail({ accountId }: { accountId: string }) {
             <LegacyFratalkHistory
               apiBase={`/api/platform/accounts/${accountId}/legacy-fratalk`}
               showBalance
+              allowMigrate
               compact
+              balanceRefreshKey={balanceRefreshKey}
+              onMigrated={() => setPurchasesRefreshKey((k) => k + 1)}
             />
           </div>
 

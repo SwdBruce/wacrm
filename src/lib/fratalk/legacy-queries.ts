@@ -248,42 +248,118 @@ export async function getLegacySendDetailByRuc(opts: {
   };
 }
 
-/** Platform-owner only: vista_saldo_compras for this RUC. */
+function toDateOnly(value: unknown): string {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value ?? '').trim();
+  return raw.length >= 10 ? raw.slice(0, 10) : raw;
+}
+
+/**
+ * Platform-owner only: one row per Fratalk `compra` for this RUC.
+ * Categories are aggregated (shared credit pool — do not split saldo).
+ */
 export async function listLegacyBalanceByRuc(
   ruc: string,
 ): Promise<LegacyBalanceRow[]> {
   const db = requirePool();
   const [rows] = await db.query<RowDataPacket[]>(
     `SELECT
-       v.id,
-       v.inicio_vigencia,
-       v.USUARIO_KEY_ID AS usuario_id,
-       v.razon_social,
-       v.category,
-       v.ultimo_envio,
-       v.saldo,
-       v.usado,
-       v.consumido_hoy,
-       v.media_envios_dia,
-       v.porcentaje_consumo
-     FROM vista_saldo_compras v
-     JOIN usuario u ON u.ID = v.USUARIO_KEY_ID
+       c.id,
+       DATE_FORMAT(c.inicio_vigencia, '%Y-%m-%d') AS inicio_vigencia,
+       DATE_FORMAT(c.FIN_VIGENCIA, '%Y-%m-%d') AS fin_vigencia,
+       c.USUARIO_ID AS usuario_id,
+       u.razon_social,
+       p.cantidad AS quantity,
+       p.precio AS unit_price,
+       p.duracion AS duration_days,
+       GROUP_CONCAT(DISTINCT pd.category ORDER BY pd.category SEPARATOR ',') AS categories,
+       COALESCE(stats.usado, 0) AS usado,
+       (p.cantidad - COALESCE(stats.usado, 0)) AS saldo,
+       COALESCE(stats.consumido_hoy, 0) AS consumido_hoy,
+       ROUND(
+         COALESCE(stats.usado, 0) / GREATEST(
+           (TO_DAYS(CURDATE()) - TO_DAYS(c.inicio_vigencia) + 1),
+           1
+         ),
+         2
+       ) AS media_envios_dia,
+       ROUND((COALESCE(stats.usado, 0) * 100) / p.cantidad, 2) AS porcentaje_consumo,
+       stats.ultimo_envio,
+       (
+         CURDATE() BETWEEN DATE(c.inicio_vigencia) AND DATE(c.FIN_VIGENCIA)
+         AND (p.cantidad - COALESCE(stats.usado, 0)) > 0
+       ) AS is_active
+     FROM compra c
+     JOIN usuario u ON u.ID = c.USUARIO_ID
+     JOIN paquete p ON p.id = c.paquete_id
+     JOIN paquete_detalle pd ON pd.paquete_id = p.id
+     LEFT JOIN (
+       SELECT
+         mt.id_compra,
+         COUNT(*) AS usado,
+         MAX(mt.fh_envio) AS ultimo_envio,
+         COUNT(
+           CASE
+             WHEN mt.fh_envio >= CURDATE()
+              AND mt.fh_envio < (CURDATE() + INTERVAL 1 DAY)
+             THEN 1
+           END
+         ) AS consumido_hoy
+       FROM mensaje_template mt
+       GROUP BY mt.id_compra
+     ) stats ON stats.id_compra = c.id
      WHERE u.RUC = :ruc
-     ORDER BY v.inicio_vigencia DESC, v.category`,
+     GROUP BY
+       c.id,
+       c.inicio_vigencia,
+       c.FIN_VIGENCIA,
+       c.USUARIO_ID,
+       u.razon_social,
+       p.cantidad,
+       p.precio,
+       p.duracion,
+       stats.usado,
+       stats.consumido_hoy,
+       stats.ultimo_envio
+     ORDER BY is_active DESC, c.inicio_vigencia DESC`,
     { ruc },
   );
 
-  return rows.map((r) => ({
-    id: Number(r.id),
-    inicio_vigencia: String(r.inicio_vigencia ?? ''),
-    usuario_id: Number(r.usuario_id),
-    razon_social: String(r.razon_social ?? ''),
-    category: String(r.category ?? ''),
-    ultimo_envio: r.ultimo_envio != null ? String(r.ultimo_envio) : null,
-    saldo: Number(r.saldo ?? 0),
-    usado: Number(r.usado ?? 0),
-    consumido_hoy: Number(r.consumido_hoy ?? 0),
-    media_envios_dia: Number(r.media_envios_dia ?? 0),
-    porcentaje_consumo: Number(r.porcentaje_consumo ?? 0),
-  }));
+  return rows.map((r) => {
+    const categories = String(r.categories ?? '')
+      .split(',')
+      .map((c) => c.trim())
+      .filter(Boolean);
+    return {
+      id: Number(r.id),
+      inicio_vigencia: toDateOnly(r.inicio_vigencia),
+      fin_vigencia: toDateOnly(r.fin_vigencia),
+      usuario_id: Number(r.usuario_id),
+      razon_social: String(r.razon_social ?? ''),
+      categories,
+      quantity: Number(r.quantity ?? 0),
+      unit_price: Number(r.unit_price ?? 0),
+      duration_days: Number(r.duration_days ?? 0),
+      ultimo_envio: r.ultimo_envio != null ? String(r.ultimo_envio) : null,
+      saldo: Number(r.saldo ?? 0),
+      usado: Number(r.usado ?? 0),
+      consumido_hoy: Number(r.consumido_hoy ?? 0),
+      media_envios_dia: Number(r.media_envios_dia ?? 0),
+      porcentaje_consumo: Number(r.porcentaje_consumo ?? 0),
+      is_active: Boolean(Number(r.is_active)),
+      already_migrated: false,
+      migrated_purchase_id: null,
+    };
+  });
+}
+
+/** Fetch one Fratalk compra (with pack meta) by id, scoped to RUC. */
+export async function getLegacyCompraByRuc(
+  ruc: string,
+  compraId: number,
+): Promise<LegacyBalanceRow | null> {
+  const rows = await listLegacyBalanceByRuc(ruc);
+  return rows.find((r) => r.id === compraId) ?? null;
 }

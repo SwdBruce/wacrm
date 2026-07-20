@@ -1,5 +1,5 @@
 // GET /api/platform/accounts/[id]/legacy-fratalk/balance
-// Platform owner ONLY — vista_saldo_compras
+// Platform owner ONLY — one row per Fratalk compra (grouped categories)
 
 import { NextResponse } from 'next/server';
 
@@ -14,13 +14,22 @@ import {
   legacyFratalkErrorResponse,
 } from '@/lib/fratalk/legacy-api';
 import { listLegacyBalanceByRuc } from '@/lib/fratalk/legacy-queries';
+import {
+  annotateLegacyBalanceMigration,
+  migrateLegacyPurchases,
+} from '@/lib/fratalk/migrate-purchases';
+import {
+  checkRateLimit,
+  rateLimitResponse,
+  RATE_LIMITS,
+} from '@/lib/rate-limit';
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requirePlatformOwner();
+    const ctx = await requirePlatformOwner();
     const { id: accountId } = await context.params;
     const ruc = await getAccountRuc(accountId);
     if (!ruc) {
@@ -31,7 +40,12 @@ export async function GET(
       });
     }
 
-    const rows = await listLegacyBalanceByRuc(ruc);
+    const raw = await listLegacyBalanceByRuc(ruc);
+    const rows = await annotateLegacyBalanceMigration(
+      accountId,
+      raw,
+      ctx.admin,
+    );
     return NextResponse.json({
       configured: true,
       has_ruc: true,
