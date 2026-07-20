@@ -167,10 +167,9 @@ export async function GET() {
 function parseOrgFields(body: {
   name?: unknown;
   ruc?: unknown;
-} | null): { name: string; ruc: string | null } | NextResponse {
+} | null): { name: string; ruc: string } | NextResponse {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const rucRaw = typeof body?.ruc === "string" ? body.ruc.trim() : "";
-  const ruc = rucRaw.length > 0 ? rucRaw : null;
+  const ruc = typeof body?.ruc === "string" ? body.ruc.trim() : "";
 
   if (!name) {
     return NextResponse.json({ error: "'name' is required" }, { status: 400 });
@@ -181,7 +180,10 @@ function parseOrgFields(body: {
       { status: 400 },
     );
   }
-  if (ruc && ruc.length > 32) {
+  if (!ruc) {
+    return NextResponse.json({ error: "'ruc' is required" }, { status: 400 });
+  }
+  if (ruc.length > 32) {
     return NextResponse.json(
       { error: "'ruc' must be 32 characters or fewer" },
       { status: 400 },
@@ -195,7 +197,7 @@ async function createClientByInvitation(
   ctx: Awaited<ReturnType<typeof requirePlatformOwner>>,
   request: Request,
   name: string,
-  ruc: string | null,
+  ruc: string,
   expiresInDaysRaw: unknown,
 ) {
   const expiresInDays = clampExpiryDays(
@@ -260,7 +262,7 @@ async function createClientByInvitation(
 async function createClientDirect(
   ctx: Awaited<ReturnType<typeof requirePlatformOwner>>,
   name: string,
-  ruc: string | null,
+  ruc: string,
   owner: { fullName: string; email: string; password: string },
 ) {
   const { data: createdUser, error: createUserError } =

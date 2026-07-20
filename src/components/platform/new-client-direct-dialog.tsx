@@ -82,6 +82,10 @@ export function NewClientDirectDialog({
       toast.error(t("passwordsDoNotMatch"));
       return;
     }
+    if (!trimmedRuc) {
+      toast.error(t("rucRequired"));
+      return;
+    }
     if (trimmedRuc.length > 32) {
       toast.error(t("rucTooLong"));
       return;
@@ -95,7 +99,7 @@ export function NewClientDirectDialog({
         body: JSON.stringify({
           mode: "direct",
           name: trimmedName,
-          ...(trimmedRuc ? { ruc: trimmedRuc } : {}),
+          ruc: trimmedRuc,
           owner: {
             fullName: trimmedOwnerName,
             email: trimmedEmail,
@@ -175,12 +179,7 @@ export function NewClientDirectDialog({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="direct-client-ruc">
-                  {t("rucLabel")}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    {tCommon("optional")}
-                  </span>
-                </Label>
+                <Label htmlFor="direct-client-ruc">{t("rucLabel")}</Label>
                 <Input
                   id="direct-client-ruc"
                   value={ruc}
@@ -265,6 +264,7 @@ export function NewClientDirectDialog({
                 disabled={
                   submitting ||
                   !name.trim() ||
+                  !ruc.trim() ||
                   !ownerName.trim() ||
                   !ownerEmail.trim() ||
                   !ownerPassword

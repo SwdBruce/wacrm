@@ -201,7 +201,7 @@ export async function PATCH(
 
     const patch: {
       name?: string;
-      ruc?: string | null;
+      ruc?: string;
       is_active?: boolean;
       deactivated_at?: string | null;
     } = {};
@@ -225,19 +225,29 @@ export async function PATCH(
 
     if (hasRuc) {
       if (body!.ruc === null || body!.ruc === "") {
-        patch.ruc = null;
-      } else if (typeof body!.ruc === "string") {
+        return NextResponse.json(
+          { error: "'ruc' is required" },
+          { status: 400 },
+        );
+      }
+      if (typeof body!.ruc === "string") {
         const rawRuc = body!.ruc.trim();
+        if (!rawRuc) {
+          return NextResponse.json(
+            { error: "'ruc' is required" },
+            { status: 400 },
+          );
+        }
         if (rawRuc.length > MAX_RUC_LENGTH) {
           return NextResponse.json(
             { error: `'ruc' must be ${MAX_RUC_LENGTH} characters or fewer` },
             { status: 400 },
           );
         }
-        patch.ruc = rawRuc.length > 0 ? rawRuc : null;
+        patch.ruc = rawRuc;
       } else {
         return NextResponse.json(
-          { error: "'ruc' must be a string or null" },
+          { error: "'ruc' must be a string" },
           { status: 400 },
         );
       }

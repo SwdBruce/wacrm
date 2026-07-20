@@ -70,6 +70,10 @@ export function NewClientDialog({
       return;
     }
     const trimmedRuc = ruc.trim();
+    if (!trimmedRuc) {
+      toast.error(t("rucRequired"));
+      return;
+    }
     if (trimmedRuc.length > 32) {
       toast.error(t("rucTooLong"));
       return;
@@ -82,8 +86,8 @@ export function NewClientDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: trimmed,
+          ruc: trimmedRuc,
           expiresInDays: Number(expiry),
-          ...(trimmedRuc ? { ruc: trimmedRuc } : {}),
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -213,12 +217,7 @@ export function NewClientDialog({
               </div>
 
               <div className="space-y-1.5">
-                <Label htmlFor="client-ruc">
-                  {t("rucLabel")}{" "}
-                  <span className="font-normal text-muted-foreground">
-                    {tCommon("optional")}
-                  </span>
-                </Label>
+                <Label htmlFor="client-ruc">{t("rucLabel")}</Label>
                 <Input
                   id="client-ruc"
                   value={ruc}
@@ -258,7 +257,7 @@ export function NewClientDialog({
               </Button>
               <Button
                 onClick={() => void createClient()}
-                disabled={submitting || !name.trim()}
+                disabled={submitting || !name.trim() || !ruc.trim()}
               >
                 {submitting ? <Loader2 className="animate-spin" /> : null}
                 {t("createBtn")}

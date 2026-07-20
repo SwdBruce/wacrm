@@ -187,12 +187,15 @@ export function ClientDetail({ accountId }: { accountId: string }) {
 
   async function saveRuc() {
     const trimmed = ruc.trim();
+    if (!trimmed) {
+      setRucSaveError(t("rucRequired"));
+      return;
+    }
     if (trimmed.length > 32) {
       setRucSaveError(t("rucTooLong"));
       return;
     }
-    const nextRuc = trimmed.length > 0 ? trimmed : null;
-    if (nextRuc === (account?.ruc ?? null)) {
+    if (trimmed === (account?.ruc ?? "")) {
       cancelRucEdit();
       return;
     }
@@ -202,14 +205,14 @@ export function ClientDetail({ accountId }: { accountId: string }) {
       const res = await fetch(`/api/platform/accounts/${accountId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ruc: nextRuc }),
+        body: JSON.stringify({ ruc: trimmed }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error ?? t("rucSaveError"));
       }
-      setAccount((prev) => (prev ? { ...prev, ruc: nextRuc } : prev));
-      setRuc(nextRuc ?? "");
+      setAccount((prev) => (prev ? { ...prev, ruc: trimmed } : prev));
+      setRuc(trimmed);
       setEditingRuc(false);
     } catch (err) {
       setRucSaveError(err instanceof Error ? err.message : t("rucSaveError"));
@@ -364,7 +367,7 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                   <Button
                     size="icon-sm"
                     onClick={() => void saveRuc()}
-                    disabled={savingRuc}
+                    disabled={savingRuc || !ruc.trim()}
                   >
                     <Check />
                   </Button>
