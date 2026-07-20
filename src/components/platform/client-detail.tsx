@@ -35,6 +35,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientPurchases } from "@/components/platform/client-purchases";
 import { LegacyFratalkHistory } from "@/components/legacy/legacy-fratalk-history";
 import type {
@@ -111,14 +112,13 @@ export function ClientDetail({ accountId }: { accountId: string }) {
   const [account, setAccount] = useState<PlatformAccountDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [section, setSection] = useState("packages");
 
-  // Rename state.
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // RUC edit state.
   const [editingRuc, setEditingRuc] = useState(false);
   const [ruc, setRuc] = useState("");
   const [savingRuc, setSavingRuc] = useState(false);
@@ -307,7 +307,11 @@ export function ClientDetail({ accountId }: { accountId: string }) {
                     }
                   }}
                 />
-                <Button size="icon-sm" onClick={() => void saveName()} disabled={saving}>
+                <Button
+                  size="icon-sm"
+                  onClick={() => void saveName()}
+                  disabled={saving}
+                >
                   <Check />
                 </Button>
                 <Button
@@ -477,58 +481,58 @@ export function ClientDetail({ accountId }: { accountId: string }) {
             />
           </div>
 
-          <ClientPurchases
-            accountId={accountId}
-            accountName={account.name}
-            refreshKey={purchasesRefreshKey}
-            onChanged={() => setBalanceRefreshKey((k) => k + 1)}
-          />
+          <Tabs value={section} onValueChange={setSection}>
+            <TabsList>
+              <TabsTrigger value="packages">{t("tabPackages")}</TabsTrigger>
+              <TabsTrigger value="fratalk">{t("tabFratalk")}</TabsTrigger>
+              <TabsTrigger value="members">{t("tabMembers")}</TabsTrigger>
+            </TabsList>
 
-          <div>
-            <h2 className="mb-2 text-sm font-semibold text-foreground">
-              {t("legacyTitle")}
-            </h2>
-            <p className="mb-3 text-sm text-muted-foreground">
-              {t("legacyDescription")}
-            </p>
-            <LegacyFratalkHistory
-              apiBase={`/api/platform/accounts/${accountId}/legacy-fratalk`}
-              showBalance
-              allowMigrate
-              compact
-              balanceRefreshKey={balanceRefreshKey}
-              onMigrated={() => setPurchasesRefreshKey((k) => k + 1)}
-            />
-          </div>
+            <TabsContent value="packages" className="pt-3">
+              <ClientPurchases
+                accountId={accountId}
+                accountName={account.name}
+                refreshKey={purchasesRefreshKey}
+                onChanged={() => setBalanceRefreshKey((k) => k + 1)}
+              />
+            </TabsContent>
 
-          {/* Members */}
-          <div>
-            <h2 className="mb-2 text-sm font-semibold text-foreground">
-              {t("membersTitle", { count: account.member_count })}
-            </h2>
-            <div className="rounded-xl ring-1 ring-foreground/10">
-              {account.members.length === 0 ? (
-                <div className="p-6 text-center text-sm text-muted-foreground">
-                  {t("noMembers")}
-                </div>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("colName")}</TableHead>
-                      <TableHead>{t("colEmail")}</TableHead>
-                      <TableHead>{t("colRole")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {account.members.map((m) => (
-                      <MemberRow key={m.user_id} member={m} />
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </div>
-          </div>
+            <TabsContent value="fratalk" className="pt-3">
+              <LegacyFratalkHistory
+                apiBase={`/api/platform/accounts/${accountId}/legacy-fratalk`}
+                showBalance
+                allowMigrate
+                compact
+                balanceRefreshKey={balanceRefreshKey}
+                onMigrated={() => setPurchasesRefreshKey((k) => k + 1)}
+              />
+            </TabsContent>
+
+            <TabsContent value="members" className="pt-3">
+              <div className="rounded-xl ring-1 ring-foreground/10">
+                {account.members.length === 0 ? (
+                  <div className="p-6 text-center text-sm text-muted-foreground">
+                    {t("noMembers")}
+                  </div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("colName")}</TableHead>
+                        <TableHead>{t("colEmail")}</TableHead>
+                        <TableHead>{t("colRole")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {account.members.map((m) => (
+                        <MemberRow key={m.user_id} member={m} />
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       ) : null}
 

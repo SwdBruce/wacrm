@@ -130,6 +130,8 @@ export function LegacyFratalkHistory({
   const [migrateOpen, setMigrateOpen] = useState(false);
   const [migrateTargets, setMigrateTargets] = useState<LegacyBalanceRow[]>([]);
   const [migrating, setMigrating] = useState(false);
+  const [legacySection, setLegacySection] = useState("balance");
+  const useSubTabs = Boolean(compact && showBalance);
 
   useEffect(() => {
     const id = window.setTimeout(() => setQDebounced(q.trim()), 300);
@@ -340,11 +342,40 @@ export function LegacyFratalkHistory({
         </div>
       ) : null}
 
-      {showBalance ? (
-        <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-foreground">
+      {useSubTabs ? (
+        <div className="inline-flex h-8 w-fit items-center justify-center rounded-lg bg-muted p-[3px] text-muted-foreground">
+          <button
+            type="button"
+            className={
+              legacySection === "balance"
+                ? "inline-flex h-[calc(100%-1px)] items-center rounded-md bg-background px-2.5 text-sm font-medium text-foreground shadow-sm"
+                : "inline-flex h-[calc(100%-1px)] items-center rounded-md px-2.5 text-sm font-medium text-foreground/60 hover:text-foreground"
+            }
+            onClick={() => setLegacySection("balance")}
+          >
             {t("tabBalance")}
-          </h3>
+          </button>
+          <button
+            type="button"
+            className={
+              legacySection === "sends"
+                ? "inline-flex h-[calc(100%-1px)] items-center rounded-md bg-background px-2.5 text-sm font-medium text-foreground shadow-sm"
+                : "inline-flex h-[calc(100%-1px)] items-center rounded-md px-2.5 text-sm font-medium text-foreground/60 hover:text-foreground"
+            }
+            onClick={() => setLegacySection("sends")}
+          >
+            {t("tabSends")}
+          </button>
+        </div>
+      ) : null}
+
+      {showBalance && (!useSubTabs || legacySection === "balance") ? (
+        <section className="space-y-3">
+          {!useSubTabs ? (
+            <h3 className="text-sm font-semibold text-foreground">
+              {t("tabBalance")}
+            </h3>
+          ) : null}
             {balanceError ? (
               <p className="text-sm text-destructive">{balanceError}</p>
             ) : null}
@@ -578,8 +609,9 @@ export function LegacyFratalkHistory({
         </section>
       ) : null}
 
+      {(!useSubTabs || legacySection === "sends") ? (
       <section className="space-y-3">
-        {showBalance ? (
+        {showBalance && !useSubTabs ? (
           <h3 className="text-sm font-semibold text-foreground">
             {t("tabSends")}
           </h3>
@@ -748,6 +780,7 @@ export function LegacyFratalkHistory({
             </>
           )}
       </section>
+      ) : null}
 
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
         <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
