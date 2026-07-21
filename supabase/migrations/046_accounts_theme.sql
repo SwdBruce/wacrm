@@ -7,7 +7,7 @@
 -- ============================================================
 
 ALTER TABLE public.accounts
-  ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'violet';
+  ADD COLUMN IF NOT EXISTS theme TEXT NOT NULL DEFAULT 'cobalt';
 
 ALTER TABLE public.accounts
   DROP CONSTRAINT IF EXISTS accounts_theme_check;
@@ -27,7 +27,7 @@ CREATE OR REPLACE FUNCTION public.create_platform_account_invitation(
   p_token_hash TEXT,
   p_expires_at TIMESTAMPTZ,
   p_ruc TEXT DEFAULT NULL,
-  p_theme TEXT DEFAULT 'violet'
+  p_theme TEXT DEFAULT 'cobalt'
 ) RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -39,7 +39,7 @@ DECLARE
   v_invitation_id UUID;
   v_name TEXT := btrim(p_name);
   v_ruc TEXT := NULLIF(btrim(COALESCE(p_ruc, '')), '');
-  v_theme TEXT := lower(btrim(COALESCE(p_theme, 'violet')));
+  v_theme TEXT := lower(btrim(COALESCE(p_theme, 'cobalt')));
 BEGIN
   IF v_caller_id IS NULL THEN
     RAISE EXCEPTION 'Unauthorized' USING ERRCODE = '42501';
@@ -122,7 +122,7 @@ CREATE OR REPLACE FUNCTION public.create_platform_account_with_owner(
   p_name TEXT,
   p_owner_user_id UUID,
   p_ruc TEXT DEFAULT NULL,
-  p_theme TEXT DEFAULT 'violet'
+  p_theme TEXT DEFAULT 'cobalt'
 ) RETURNS JSON
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -133,7 +133,7 @@ DECLARE
   v_account_id UUID;
   v_name TEXT := btrim(p_name);
   v_ruc TEXT := NULLIF(btrim(COALESCE(p_ruc, '')), '');
-  v_theme TEXT := lower(btrim(COALESCE(p_theme, 'violet')));
+  v_theme TEXT := lower(btrim(COALESCE(p_theme, 'cobalt')));
   v_old_account_id UUID;
   v_old_account_owner UUID;
   v_has_data BOOLEAN;
