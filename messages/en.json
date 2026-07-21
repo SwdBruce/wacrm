@@ -1783,6 +1783,7 @@
       "empty": "No client organisations yet.",
       "emptySearch": "No clients match your search.",
       "colOrganisation": "Organisation",
+      "colTheme": "Theme",
       "colStatus": "Status",
       "colRuc": "RUC",
       "colOwner": "Owner",
@@ -1794,6 +1795,9 @@
       "statusInactive": "Deactivated",
       "assignAria": "Assign package to {name}",
       "openAria": "Open {name}"
+    },
+    "theme": {
+      "label": "Accent color"
     },
     "clientDetail": {
       "back": "Back to clients",

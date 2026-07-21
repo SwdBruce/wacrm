@@ -23,6 +23,7 @@ import type {
   PlatformAccountDetail,
   PlatformAccountMember,
 } from "@/lib/platform/types";
+import { DEFAULT_THEME, isThemeId } from "@/lib/themes";
 
 const MAX_NAME_LENGTH = 100;
 const MAX_RUC_LENGTH = 32;
@@ -31,6 +32,7 @@ interface AccountRow {
   id: string;
   name: string;
   ruc: string | null;
+  theme: string | null;
   is_active: boolean;
   deactivated_at: string | null;
   owner_user_id: string | null;
@@ -76,7 +78,7 @@ export async function GET(
 
     const { data: account, error: accountErr } = await db
       .from("accounts")
-      .select("id, name, ruc, is_active, deactivated_at, owner_user_id, created_at")
+      .select("id, name, ruc, theme, is_active, deactivated_at, owner_user_id, created_at")
       .eq("id", id)
       .maybeSingle<AccountRow>();
 
@@ -144,6 +146,7 @@ export async function GET(
       id: account.id,
       name: account.name,
       ruc: account.ruc ?? null,
+      theme: isThemeId(account.theme) ? account.theme : DEFAULT_THEME,
       is_active: account.is_active !== false,
       deactivated_at: account.deactivated_at ?? null,
       created_at: account.created_at,

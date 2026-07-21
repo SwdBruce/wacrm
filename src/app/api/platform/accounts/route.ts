@@ -30,11 +30,17 @@ import {
   RATE_LIMITS,
 } from "@/lib/rate-limit";
 import type { PlatformAccountSummary } from "@/lib/platform/types";
+import {
+  DEFAULT_THEME,
+  isThemeId,
+  type ThemeId,
+} from "@/lib/themes";
 
 interface AccountRow {
   id: string;
   name: string;
   ruc: string | null;
+  theme: string | null;
   is_active: boolean;
   deactivated_at: string | null;
   owner_user_id: string | null;
@@ -63,7 +69,7 @@ export async function GET() {
     const [accountsRes, profilesRes, whatsappRes] = await Promise.all([
       db
         .from("accounts")
-        .select("id, name, ruc, is_active, deactivated_at, owner_user_id, created_at")
+        .select("id, name, ruc, theme, is_active, deactivated_at, owner_user_id, created_at")
         .order("created_at", { ascending: false }),
       db.from("profiles").select("user_id, full_name, email, account_id"),
       db
@@ -128,6 +134,7 @@ export async function GET() {
         id: a.id,
         name: a.name,
         ruc: a.ruc ?? null,
+        theme: isThemeId(a.theme) ? a.theme : DEFAULT_THEME,
         is_active: a.is_active !== false,
         deactivated_at: a.deactivated_at ?? null,
         created_at: a.created_at,
@@ -167,9 +174,12 @@ export async function GET() {
 function parseOrgFields(body: {
   name?: unknown;
   ruc?: unknown;
-} | null): { name: string; ruc: string } | NextResponse {
+  theme?: unknown;
+} | null): { name: string; ruc: string; theme: ThemeId } | NextResponse {
   const name = typeof body?.name === "string" ? body.name.trim() : "";
   const ruc = typeof body?.ruc === "string" ? body.ruc.trim() : "";
+  const themeRaw = typeof body?.theme === "string" ? body.theme.trim() : "";
+  const theme: ThemeId = isThemeId(themeRaw) ? themeRaw : DEFAULT_THEME;
 
   if (!name) {
     return NextResponse.json({ error: "'name' is required" }, { status: 400 });
@@ -189,8 +199,14 @@ function parseOrgFields(body: {
       { status: 400 },
     );
   }
+  if (themeRaw && !isThemeId(themeRaw)) {
+    return NextResponse.json(
+      { error: "'theme' must be a valid accent theme id" },
+      { status: 400 },
+    );
+  }
 
-  return { name, ruc };
+  return { name, ruc, theme };
 }
 
 async function createClientByInvitation(
@@ -198,6 +214,7 @@ async function createClientByInvitation(
   request: Request,
   name: string,
   ruc: string,
+  theme: ThemeId,
   expiresInDaysRaw: unknown,
 ) {
   const expiresInDays = clampExpiryDays(
@@ -213,6 +230,7 @@ async function createClientByInvitation(
       p_token_hash: hash,
       p_expires_at: expiresAt.toISOString(),
       p_ruc: ruc,
+      p_theme: theme,
     },
   );
 
@@ -246,7 +264,7 @@ async function createClientByInvitation(
 
   return NextResponse.json(
     {
-      account: { id: result.account_id, name, ruc },
+      account: { id: result.account_id, name, ruc, theme },
       invitation: {
         id: result.invitation_id,
         role: "owner",
@@ -263,6 +281,7 @@ async function createClientDirect(
   ctx: Awaited<ReturnType<typeof requirePlatformOwner>>,
   name: string,
   ruc: string,
+  theme: ThemeId,
   owner: { fullName: string; email: string; password: string },
 ) {
   const { data: createdUser, error: createUserError } =
@@ -291,6 +310,7 @@ async function createClientDirect(
       p_name: name,
       p_owner_user_id: ownerUserId,
       p_ruc: ruc,
+      p_theme: theme,
     },
   );
 
@@ -328,7 +348,7 @@ async function createClientDirect(
 
   return NextResponse.json(
     {
-      account: { id: result.account_id, name, ruc },
+      account: { id: result.account_id, name, ruc, theme },
       owner: {
         user_id: ownerUserId,
         full_name: owner.fullName,
@@ -355,6 +375,7 @@ export async function POST(request: Request) {
           name?: unknown;
           expiresInDays?: unknown;
           ruc?: unknown;
+          theme?: unknown;
           owner?: {
             fullName?: unknown;
             email?: unknown;
@@ -365,7 +386,7 @@ export async function POST(request: Request) {
 
     const parsed = parseOrgFields(body);
     if (parsed instanceof NextResponse) return parsed;
-    const { name, ruc } = parsed;
+    const { name, ruc, theme } = parsed;
 
     const mode = body?.mode === "direct" ? "direct" : "invitation";
 
@@ -398,7 +419,11 @@ export async function POST(request: Request) {
         );
       }
 
-      return createClientDirect(ctx, name, ruc, { fullName, email, password });
+      return createClientDirect(ctx, name, ruc, theme, {
+        fullName,
+        email,
+        password,
+      });
     }
 
     return createClientByInvitation(
@@ -406,6 +431,7 @@ export async function POST(request: Request) {
       request,
       name,
       ruc,
+      theme,
       body?.expiresInDays,
     );
   } catch (err) {

@@ -35,6 +35,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import type { PlatformAccountSummary } from "@/lib/platform/types";
+import { THEMES } from "@/lib/themes";
 import { NewClientDirectDialog } from "./new-client-direct-dialog";
 import { NewClientDialog } from "./new-client-dialog";
 
@@ -218,6 +219,7 @@ export function ClientsList() {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("colOrganisation")}</TableHead>
+                <TableHead>{t("colTheme")}</TableHead>
                 <TableHead>{t("colStatus")}</TableHead>
                 <TableHead>{t("colRuc")}</TableHead>
                 <TableHead>{t("colOwner")}</TableHead>
@@ -237,6 +239,22 @@ export function ClientsList() {
                     >
                       {a.name}
                     </Link>
+                  </TableCell>
+                  <TableCell>
+                    <span
+                      className="inline-block size-4 rounded-full ring-1 ring-foreground/15"
+                      style={{
+                        backgroundColor:
+                          THEMES.find((th) => th.id === a.theme)?.swatch ??
+                          THEMES[0].swatch,
+                      }}
+                      title={
+                        THEMES.find((th) => th.id === a.theme)?.name ?? a.theme
+                      }
+                      aria-label={
+                        THEMES.find((th) => th.id === a.theme)?.name ?? a.theme
+                      }
+                    />
                   </TableCell>
                   <TableCell>
                     <Badge

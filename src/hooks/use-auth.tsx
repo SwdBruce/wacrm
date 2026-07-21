@@ -14,6 +14,12 @@ import { createClient } from "@/lib/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { DEFAULT_CURRENCY } from "@/lib/currency";
 import {
+  DEFAULT_THEME,
+  STORAGE_KEY,
+  isThemeId,
+  type ThemeId,
+} from "@/lib/themes";
+import {
   canEditSettings as canEditSettingsFor,
   canManageMembers as canManageMembersFor,
   canSendMessages as canSendMessagesFor,
@@ -51,6 +57,8 @@ interface AccountSummary {
   ruc: string | null;
   /** Soft-deactivate flag from platform Clients. */
   is_active: boolean;
+  /** Accent theme for this organisation. */
+  theme: ThemeId;
   /** Default deal currency (ISO-4217). NOT NULL DEFAULT 'USD' in the
    *  DB (migration 021); narrowed to DEFAULT_CURRENCY when absent. */
   default_currency: string;
@@ -184,7 +192,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .from("accounts")
             // default_currency added in migration 021; narrowed to the
             // USD fallback below for older schemas where it reads null.
-            .select("id, name, ruc, is_active, default_currency")
+            .select("id, name, ruc, theme, is_active, default_currency")
             .eq("id", data.account_id)
             .maybeSingle();
           if (accountErr) {
@@ -195,14 +203,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               code: accountErr.code,
             });
           } else if (account) {
+            const theme: ThemeId = isThemeId(account.theme)
+              ? account.theme
+              : DEFAULT_THEME;
             accountRow = {
               id: account.id,
               name: account.name,
               ruc: account.ruc ?? null,
               // Pre-042 schemas omit the column; treat missing as active.
               is_active: account.is_active !== false,
+              theme,
               default_currency: account.default_currency ?? DEFAULT_CURRENCY,
             };
+            // Client orgs get their brand accent. Platform owners keep
+            // their personal localStorage preference while administering.
+            if (
+              data.is_platform_owner !== true &&
+              typeof document !== "undefined"
+            ) {
+              document.documentElement.dataset.theme = theme;
+              try {
+                localStorage.setItem(STORAGE_KEY, theme);
+              } catch {
+                // private browsing
+              }
+              window.dispatchEvent(
+                new CustomEvent("wacrm:account-theme", { detail: theme }),
+              );
+            }
           }
         }
 

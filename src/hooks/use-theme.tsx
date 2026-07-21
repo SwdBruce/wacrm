@@ -93,6 +93,20 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // Account theme from AuthProvider (after profile load).
+  useEffect(() => {
+    function onAccountTheme(e: Event) {
+      const next = (e as CustomEvent<unknown>).detail;
+      if (isThemeId(next)) {
+        setThemeState(next);
+        document.documentElement.dataset.theme = next;
+      }
+    }
+    window.addEventListener("wacrm:account-theme", onAccountTheme);
+    return () =>
+      window.removeEventListener("wacrm:account-theme", onAccountTheme);
+  }, []);
+
   const setMode = useCallback((next: Mode) => {
     setModeState(next);
     if (typeof document !== "undefined") {

@@ -4,6 +4,7 @@
 // ============================================================
 
 import type { AccountRole } from "@/lib/auth/roles";
+import type { ThemeId } from "@/lib/themes";
 
 /** WhatsApp connection snapshot for an account. */
 export interface PlatformWhatsApp {
@@ -23,8 +24,10 @@ export interface PlatformAccountOwner {
 export interface PlatformAccountSummary {
   id: string;
   name: string;
-  /** Optional tax ID (e.g. Peru RUC). */
+  /** Tax ID (e.g. Peru RUC). */
   ruc: string | null;
+  /** Accent theme for this organisation. */
+  theme: ThemeId;
   /** Soft-deactivate flag — false blocks member login and tenant use. */
   is_active: boolean;
   /** Set when deactivated; null while active. */

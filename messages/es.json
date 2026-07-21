@@ -1771,6 +1771,7 @@
       "empty": "Aún no hay organizaciones cliente.",
       "emptySearch": "Ningún cliente coincide con tu búsqueda.",
       "colOrganisation": "Organización",
+      "colTheme": "Tema",
       "colStatus": "Estado",
       "colRuc": "RUC",
       "colOwner": "Propietario",
@@ -1782,6 +1783,9 @@
       "statusInactive": "Desactivado",
       "assignAria": "Asignar paquete a {name}",
       "openAria": "Abrir {name}"
+    },
+    "theme": {
+      "label": "Color de acento"
     },
     "clientDetail": {
       "back": "Volver a clientes",

@@ -5,6 +5,7 @@ import { Copy, Loader2, MessageCircle, Sparkles } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { ThemePicker } from "./theme-picker";
 import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { DEFAULT_THEME, type ThemeId } from "@/lib/themes";
 
 interface NewClientDialogProps {
   open: boolean;
@@ -45,6 +47,7 @@ export function NewClientDialog({
   const tCommon = useTranslations("Platform.common");
   const [name, setName] = useState("");
   const [ruc, setRuc] = useState("");
+  const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [expiry, setExpiry] = useState("7");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreatedClient | null>(null);
@@ -58,6 +61,7 @@ export function NewClientDialog({
   function reset() {
     setName("");
     setRuc("");
+    setTheme(DEFAULT_THEME);
     setExpiry("7");
     setSubmitting(false);
     setResult(null);
@@ -87,6 +91,7 @@ export function NewClientDialog({
         body: JSON.stringify({
           name: trimmed,
           ruc: trimmedRuc,
+          theme,
           expiresInDays: Number(expiry),
         }),
       });
@@ -229,6 +234,12 @@ export function NewClientDialog({
                   }}
                 />
               </div>
+
+              <ThemePicker
+                id="client-theme"
+                value={theme}
+                onChange={setTheme}
+              />
 
               <div className="space-y-1.5">
                 <Label htmlFor="owner-invite-expiry">{t("expiryLabel")}</Label>

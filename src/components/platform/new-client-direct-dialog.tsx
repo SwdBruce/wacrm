@@ -5,6 +5,7 @@ import { CheckCircle, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
+import { ThemePicker } from "./theme-picker";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_THEME, type ThemeId } from "@/lib/themes";
 
 interface NewClientDirectDialogProps {
   open: boolean;
@@ -38,6 +40,7 @@ export function NewClientDirectDialog({
   const tCommon = useTranslations("Platform.common");
   const [name, setName] = useState("");
   const [ruc, setRuc] = useState("");
+  const [theme, setTheme] = useState<ThemeId>(DEFAULT_THEME);
   const [ownerName, setOwnerName] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
@@ -48,6 +51,7 @@ export function NewClientDirectDialog({
   function reset() {
     setName("");
     setRuc("");
+    setTheme(DEFAULT_THEME);
     setOwnerName("");
     setOwnerEmail("");
     setOwnerPassword("");
@@ -100,6 +104,7 @@ export function NewClientDirectDialog({
           mode: "direct",
           name: trimmedName,
           ruc: trimmedRuc,
+          theme,
           owner: {
             fullName: trimmedOwnerName,
             email: trimmedEmail,
@@ -188,6 +193,12 @@ export function NewClientDirectDialog({
                   placeholder={t("rucPlaceholder")}
                 />
               </div>
+
+              <ThemePicker
+                id="direct-client-theme"
+                value={theme}
+                onChange={setTheme}
+              />
 
               <div className="rounded-lg border border-border bg-muted/30 px-3 py-2">
                 <p className="text-xs font-medium text-foreground">
