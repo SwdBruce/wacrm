@@ -23,7 +23,7 @@ import type {
   PlatformAccountDetail,
   PlatformAccountMember,
 } from "@/lib/platform/types";
-import { DEFAULT_THEME, isThemeId } from "@/lib/themes";
+import { DEFAULT_THEME, isThemeId, type ThemeId } from "@/lib/themes";
 
 const MAX_NAME_LENGTH = 100;
 const MAX_RUC_LENGTH = 32;
@@ -188,16 +188,17 @@ export async function PATCH(
     const { id } = await params;
 
     const body = (await request.json().catch(() => null)) as
-      | { name?: unknown; ruc?: unknown; is_active?: unknown }
+      | { name?: unknown; ruc?: unknown; theme?: unknown; is_active?: unknown }
       | null;
 
     const hasName = typeof body?.name === "string";
     const hasRuc = Object.prototype.hasOwnProperty.call(body ?? {}, "ruc");
+    const hasTheme = Object.prototype.hasOwnProperty.call(body ?? {}, "theme");
     const hasIsActive = typeof body?.is_active === "boolean";
 
-    if (!hasName && !hasRuc && !hasIsActive) {
+    if (!hasName && !hasRuc && !hasTheme && !hasIsActive) {
       return NextResponse.json(
-        { error: "Provide 'name', 'ruc', and/or 'is_active'" },
+        { error: "Provide 'name', 'ruc', 'theme', and/or 'is_active'" },
         { status: 400 },
       );
     }
@@ -205,6 +206,7 @@ export async function PATCH(
     const patch: {
       name?: string;
       ruc?: string;
+      theme?: ThemeId;
       is_active?: boolean;
       deactivated_at?: string | null;
     } = {};
@@ -256,6 +258,18 @@ export async function PATCH(
       }
     }
 
+    if (hasTheme) {
+      const rawTheme =
+        typeof body!.theme === "string" ? body!.theme.trim() : "";
+      if (!isThemeId(rawTheme)) {
+        return NextResponse.json(
+          { error: "'theme' must be a valid accent theme id" },
+          { status: 400 },
+        );
+      }
+      patch.theme = rawTheme;
+    }
+
     if (hasIsActive) {
       const nextActive = body!.is_active as boolean;
       patch.is_active = nextActive;
@@ -266,11 +280,12 @@ export async function PATCH(
       .from("accounts")
       .update(patch)
       .eq("id", id)
-      .select("id, name, ruc, is_active, deactivated_at")
+      .select("id, name, ruc, theme, is_active, deactivated_at")
       .maybeSingle<{
         id: string;
         name: string;
         ruc: string | null;
+        theme: string | null;
         is_active: boolean;
         deactivated_at: string | null;
       }>();
