@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { MessageSquare, CheckCircle, UsersRound } from "lucide-react";
+import { CheckCircle, UsersRound } from "lucide-react";
 
 // `useSearchParams` opts the component out of static prerendering
 // unless wrapped in Suspense — same pattern as /login.
@@ -29,11 +29,10 @@ export default function SignupPage() {
 
 function SignupPageInner() {
   const searchParams = useSearchParams();
-  // When the user lands here from `/join/<token>` we carry the
-  // invite token in the query so it survives the signup → email
-  // verification → redirect round-trip. `emailRedirectTo` below
-  // points back at /join/<token> so the user lands on the redeem
-  // step after verifying instead of being dropped on /dashboard.
+  const router = useRouter();
+  // Invite-only: public signup is closed. The invite token must
+  // survive the signup → email verification → redirect round-trip
+  // so `emailRedirectTo` lands on /join/<token> after verifying.
   const inviteToken = searchParams.get("invite");
   const t = useTranslations("SignupPage");
 
@@ -46,9 +45,20 @@ function SignupPageInner() {
   const [success, setSuccess] = useState(false);
   const supabase = createClient();
 
+  useEffect(() => {
+    if (!inviteToken) {
+      router.replace("/login");
+    }
+  }, [inviteToken, router]);
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!inviteToken) {
+      router.replace("/login");
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError(t("passwordsDoNotMatch"));
@@ -62,13 +72,7 @@ function SignupPageInner() {
 
     setLoading(true);
 
-    // If we have an invite token, point Supabase's verification
-    // email back at the join page so the user can accept after
-    // verifying. Without a token, Supabase uses its default
-    // redirect (the app root).
-    const emailRedirectTo = inviteToken
-      ? `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`
-      : undefined;
+    const emailRedirectTo = `${window.location.origin}/join/${encodeURIComponent(inviteToken)}`;
 
     const { error } = await supabase.auth.signUp({
       email,
@@ -77,7 +81,7 @@ function SignupPageInner() {
         data: {
           full_name: fullName,
         },
-        ...(emailRedirectTo ? { emailRedirectTo } : {}),
+        emailRedirectTo,
       },
     });
 
@@ -90,6 +94,10 @@ function SignupPageInner() {
     setSuccess(true);
     setLoading(false);
   };
+
+  if (!inviteToken) {
+    return null;
+  }
 
   if (success) {
     return (
@@ -112,13 +120,7 @@ function SignupPageInner() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
-            >
+            <Link href={`/login?invite=${encodeURIComponent(inviteToken)}`}>
               <Button
                 variant="outline"
                 className="w-full border-border text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -137,17 +139,13 @@ function SignupPageInner() {
       <Card className="w-full max-w-md border-border bg-card">
         <CardHeader className="items-center text-center">
           <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-            {inviteToken ? (
-              <UsersRound className="h-6 w-6 text-primary" />
-            ) : (
-              <MessageSquare className="h-6 w-6 text-primary" />
-            )}
+            <UsersRound className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-xl text-foreground">
-            {inviteToken ? t("titleInvite") : t("titleDefault")}
+            {t("titleInvite")}
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-            {inviteToken ? t("descInvite") : t("descDefault")}
+            {t("descInvite")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -242,11 +240,7 @@ function SignupPageInner() {
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {t("alreadyHaveAccount")}{" "}
             <Link
-              href={
-                inviteToken
-                  ? `/login?invite=${encodeURIComponent(inviteToken)}`
-                  : "/login"
-              }
+              href={`/login?invite=${encodeURIComponent(inviteToken)}`}
               className="text-primary hover:text-primary/80"
             >
               {t("signIn")}

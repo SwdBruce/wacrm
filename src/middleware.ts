@@ -42,6 +42,19 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
+  // Invite-only signup: public /signup is closed. New accounts
+  // are created only via an invitation link (?invite=…), which
+  // then lands on /join/<token> after email verification.
+  if (
+    request.nextUrl.pathname === '/signup' &&
+    !request.nextUrl.searchParams.get('invite')
+  ) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/login'
+    url.search = ''
+    return withRefreshedCookies(NextResponse.redirect(url))
+  }
+
   // Auth pages - redirect to dashboard if already logged in.
   // Exception: when an invite token is in the query string we
   // send the already-signed-in user to /join/<token> instead so
